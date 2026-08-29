@@ -90,39 +90,45 @@ bool RailwayNetwork::isConnected() const
         return true;
     }
 
-    const NodeId startNode = nodes_.begin()->first;
-
-    std::queue<NodeId> queue;
-    std::unordered_set<NodeId> visited;
-
-    queue.push(startNode);
-    visited.insert(startNode);
-
-    while (!queue.empty())
+    for (const auto& [startNode, _] : nodes_)
     {
-        const NodeId current = queue.front();
-        queue.pop();
+        std::queue<NodeId> queue;
+        std::unordered_set<NodeId> visited;
 
-        const auto adjacencyIterator =
-            adjacency_.find(current);
+        queue.push(startNode);
+        visited.insert(startNode);
 
-        if (adjacencyIterator == adjacency_.end())
+        while (!queue.empty())
         {
-            continue;
+            const NodeId current = queue.front();
+            queue.pop();
+
+            const auto adjacencyIterator =
+                adjacency_.find(current);
+
+            if (adjacencyIterator == adjacency_.end())
+            {
+                continue;
+            }
+
+            for (const NodeId neighbour :
+                 adjacencyIterator->second)
+            {
+                if (!visited.contains(neighbour))
+                {
+                    visited.insert(neighbour);
+                    queue.push(neighbour);
+                }
+            }
         }
 
-        for (const NodeId neighbour :
-             adjacencyIterator->second)
+        if (visited.size() == nodes_.size())
         {
-            if (!visited.contains(neighbour))
-            {
-                visited.insert(neighbour);
-                queue.push(neighbour);
-            }
+            return true;
         }
     }
 
-    return visited.size() == nodes_.size();
+    return false;
 }
 
 bool RailwayNetwork::hasCycle() const
