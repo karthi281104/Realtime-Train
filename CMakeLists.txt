@@ -50,6 +50,13 @@ add_library(tcas_core
     src/infrastructure/Junction.cpp
     src/infrastructure/Platform.cpp
     src/infrastructure/RailwayNetwork.cpp
+
+    # Module 2 - Train Management
+    src/train/Train.cpp
+    src/train/ExpressTrain.cpp
+    src/train/PassengerTrain.cpp
+    src/train/FreightTrain.cpp
+    src/train/TrainManager.cpp
 )
 
 target_include_directories(tcas_core
@@ -103,10 +110,17 @@ enable_testing()
 
 add_executable(tcas_tests
 
-    # Module 1 Tests
+    # Module 1
     tests/infrastructure/NodeTest.cpp
     tests/infrastructure/TrackTest.cpp
     tests/infrastructure/RailwayNetworkTest.cpp
+
+    # Module 2
+    tests/train/TrainTest.cpp
+    tests/train/ExpressTrainTest.cpp
+    tests/train/PassengerTrainTest.cpp
+    tests/train/FreightTrainTest.cpp
+    tests/train/TrainManagerTest.cpp
 )
 
 target_include_directories(tcas_tests

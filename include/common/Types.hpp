@@ -5,16 +5,33 @@
 namespace tcas
 {
 
-using TrainId = std::uint32_t;
+// ============================================================
+// Infrastructure identifiers
+// ============================================================
+
 using NodeId = std::uint32_t;
 using TrackId = std::uint32_t;
+using StationId = std::uint32_t;
 using JunctionId = std::uint32_t;
 using PlatformId = std::uint32_t;
 
-using TimeSeconds = double;
+// ============================================================
+// Train identifier
+// ============================================================
+
+using TrainId = std::uint32_t;
+
+// ============================================================
+// Physical quantities
+// ============================================================
+
 using DistanceMeters = double;
 using SpeedMetersPerSecond = double;
 using AccelerationMetersPerSecondSquared = double;
+
+// ============================================================
+// Train classification
+// ============================================================
 
 enum class TrainType
 {
@@ -23,46 +40,16 @@ enum class TrainType
     Freight
 };
 
+// ============================================================
+// Train operational state
+// ============================================================
+
 enum class TrainState
 {
-    Normal,
-    Caution,
-    Warning,
-    Critical,
-    EmergencyBrake,
+    Idle,
+    Running,
+    Braking,
     Stopped,
-    Degraded
-};
-
-enum class SensorState
-{
-    Healthy,
-    Degraded,
-    Failed,
-    Recovered
-};
-
-enum class CommunicationState
-{
-    Connected,
-    Degraded,
-    Disconnected
-};
-
-enum class ConflictType
-{
-    RearEnd,
-    HeadOn,
-    Junction,
-    Platform,
-    SharedTrack
-};
-
-enum class SafetyCommand
-{
-    None,
-    ReduceSpeed,
-    HoldAtSignal,
     EmergencyBrake
 };
 
