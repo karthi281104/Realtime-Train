@@ -13,6 +13,7 @@ project(TCAS
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ============================================================
 # Compiler Warnings
@@ -57,6 +58,10 @@ add_library(tcas_core
     src/train/PassengerTrain.cpp
     src/train/FreightTrain.cpp
     src/train/TrainManager.cpp
+
+    # Module 3 - Simulation & Clock
+    src/simulation/SimClock.cpp
+    src/simulation/SimulationTimer.cpp
 )
 
 target_include_directories(tcas_core
@@ -111,18 +116,22 @@ enable_testing()
 
 add_executable(tcas_tests
 
-    # Module 1
+    # Module 1 Tests
     tests/infrastructure/NodeTest.cpp
     tests/infrastructure/TrackTest.cpp
     tests/infrastructure/RailwayNetworkTest.cpp
 
-    # Module 2
+    # Module 2 Tests - Train Management
     tests/train/TrainTest.cpp
     tests/train/ExpressTrainTest.cpp
     tests/train/PassengerTrainTest.cpp
     tests/train/FreightTrainTest.cpp
     tests/train/TrainManagerTest.cpp
 
+    # Module 3 Tests - Simulation & Clock
+    tests/simulation/SimClockTest.cpp
+    tests/simulation/SimulationConfigTest.cpp
+    tests/simulation/SimulationTimerTest.cpp
 )
 
 target_include_directories(tcas_tests

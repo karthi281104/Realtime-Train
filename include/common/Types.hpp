@@ -25,9 +25,11 @@ using TrainId = std::uint32_t;
 // Physical quantities
 // ============================================================
 
+using TimeSeconds = double;
 using DistanceMeters = double;
 using SpeedMetersPerSecond = double;
 using AccelerationMetersPerSecondSquared = double;
+using SimTimeTick = std::uint64_t;
 
 // ============================================================
 // Train classification
