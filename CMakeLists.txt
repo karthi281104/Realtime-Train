@@ -38,11 +38,36 @@ else()
 endif()
 
 # ============================================================
+# TCAS Core Library
+# ============================================================
+
+add_library(tcas_core
+
+    # Module 1 - Railway Infrastructure
+    src/infrastructure/Node.cpp
+    src/infrastructure/Track.cpp
+    src/infrastructure/Station.cpp
+    src/infrastructure/Junction.cpp
+    src/infrastructure/Platform.cpp
+    src/infrastructure/RailwayNetwork.cpp
+)
+
+target_include_directories(tcas_core
+    PUBLIC
+        ${PROJECT_SOURCE_DIR}/include
+)
+
+# ============================================================
 # Main Application
 # ============================================================
 
 add_executable(tcas
     src/main.cpp
+)
+
+target_link_libraries(tcas
+    PRIVATE
+        tcas_core
 )
 
 target_include_directories(tcas
@@ -66,14 +91,22 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(googletest)
 
+# ============================================================
+# Testing
+# ============================================================
+
 enable_testing()
 
 # ============================================================
-# TCAS Tests
+# TCAS GoogleTest Executable
 # ============================================================
 
 add_executable(tcas_tests
-    tests/test_main.cpp
+
+    # Module 1 Tests
+    tests/infrastructure/NodeTest.cpp
+    tests/infrastructure/TrackTest.cpp
+    tests/infrastructure/RailwayNetworkTest.cpp
 )
 
 target_include_directories(tcas_tests
@@ -83,9 +116,14 @@ target_include_directories(tcas_tests
 
 target_link_libraries(tcas_tests
     PRIVATE
+        tcas_core
         GTest::gtest
         GTest::gtest_main
 )
+
+# ============================================================
+# GoogleTest Test Discovery
+# ============================================================
 
 include(GoogleTest)
 

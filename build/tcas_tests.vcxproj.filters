@@ -1,7 +1,13 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="D:\POC-FINAL-CPP\Realtime-Train\tests\test_main.cpp">
+    <ClCompile Include="D:\POC-FINAL-CPP\Realtime-Train\tests\infrastructure\NodeTest.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\POC-FINAL-CPP\Realtime-Train\tests\infrastructure\TrackTest.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\POC-FINAL-CPP\Realtime-Train\tests\infrastructure\RailwayNetworkTest.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

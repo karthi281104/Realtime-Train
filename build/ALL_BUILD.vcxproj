@@ -194,6 +194,10 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <Project>{CD66F4D6-9FE4-37AF-A901-9EFFB2847C47}</Project>
       <Name>tcas</Name>
     </ProjectReference>
+    <ProjectReference Include="D:\POC-FINAL-CPP\Realtime-Train\build\tcas_core.vcxproj">
+      <Project>{7B693BEC-B57B-3354-B024-6F0B58506BB6}</Project>
+      <Name>tcas_core</Name>
+    </ProjectReference>
     <ProjectReference Include="D:\POC-FINAL-CPP\Realtime-Train\build\tcas_tests.vcxproj">
       <Project>{37BBAD18-301E-31BF-9E05-D771DF422338}</Project>
       <Name>tcas_tests</Name>

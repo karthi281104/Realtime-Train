@@ -1,15 +1,101 @@
 {
-  "tests": 1,
+  "tests": 17,
   "name": "AllTests",
   "testsuites": [
     {
-      "name": "TCASFoundationTest",
+      "name": "TrackTest",
       "tests": 1,
       "testsuite": [
         {
-          "name": "ProjectIsInitialized",
-          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\test_main.cpp",
-          "line": 3
+          "name": "StoresTrackInformation",
+          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\infrastructure\\TrackTest.cpp",
+          "line": 8
+        }
+      ]
+    },
+    {
+      "name": "RailwayNetworkTest",
+      "tests": 16,
+      "testsuite": [
+        {
+          "name": "StartsEmpty",
+          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\infrastructure\\RailwayNetworkTest.cpp",
+          "line": 40
+        },
+        {
+          "name": "AddsNode",
+          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\infrastructure\\RailwayNetworkTest.cpp",
+          "line": 48
+        },
+        {
+          "name": "RejectsDuplicateNode",
+          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\infrastructure\\RailwayNetworkTest.cpp",
+          "line": 61
+        },
+        {
+          "name": "AddsValidTrack",
+          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\infrastructure\\RailwayNetworkTest.cpp",
+          "line": 80
+        },
+        {
+          "name": "RejectsTrackWithMissingSource",
+          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\infrastructure\\RailwayNetworkTest.cpp",
+          "line": 108
+        },
+        {
+          "name": "RejectsTrackWithMissingDestination",
+          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\infrastructure\\RailwayNetworkTest.cpp",
+          "line": 130
+        },
+        {
+          "name": "RejectsDuplicateTrack",
+          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\infrastructure\\RailwayNetworkTest.cpp",
+          "line": 152
+        },
+        {
+          "name": "FindsNode",
+          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\infrastructure\\RailwayNetworkTest.cpp",
+          "line": 179
+        },
+        {
+          "name": "MissingNodeReturnsNull",
+          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\infrastructure\\RailwayNetworkTest.cpp",
+          "line": 193
+        },
+        {
+          "name": "FindsTrack",
+          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\infrastructure\\RailwayNetworkTest.cpp",
+          "line": 200
+        },
+        {
+          "name": "EmptyNetworkIsConnected",
+          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\infrastructure\\RailwayNetworkTest.cpp",
+          "line": 223
+        },
+        {
+          "name": "SingleNodeNetworkIsConnected",
+          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\infrastructure\\RailwayNetworkTest.cpp",
+          "line": 230
+        },
+        {
+          "name": "BFSDetectsConnectedNetwork",
+          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\infrastructure\\RailwayNetworkTest.cpp",
+          "line": 241
+        },
+        {
+          "name": "BFSDetectsDisconnectedNetwork",
+          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\infrastructure\\RailwayNetworkTest.cpp",
+          "line": 248
+        },
+        {
+          "name": "DFSDetectsNoCycle",
+          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\infrastructure\\RailwayNetworkTest.cpp",
+          "line": 271
+        },
+        {
+          "name": "DFSDetectsCycle",
+          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\infrastructure\\RailwayNetworkTest.cpp",
+          "line": 278
         }
       ]
     }
