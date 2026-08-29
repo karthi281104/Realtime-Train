@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "D:/POC-FINAL-CPP/Realtime-Train/build/_deps/googletest-subbuild/CMakeFiles/googletest-populate"
+		},
+		{
+			"file" : "D:/POC-FINAL-CPP/Realtime-Train/build/_deps/googletest-subbuild/CMakeFiles/d929771b4a6c64bd96234b30444a57c7/googletest-populate.rule"
+		},
+		{
+			"file" : "D:/POC-FINAL-CPP/Realtime-Train/build/_deps/googletest-subbuild/CMakeFiles/d0eba0f988ece1e467c427048019d19f/googletest-populate-complete.rule"
+		},
+		{
+			"file" : "D:/POC-FINAL-CPP/Realtime-Train/build/_deps/googletest-subbuild/CMakeFiles/5a719c8c34c1d0d080fb037ff2105896/googletest-populate-build.rule"
+		},
+		{
+			"file" : "D:/POC-FINAL-CPP/Realtime-Train/build/_deps/googletest-subbuild/CMakeFiles/5a719c8c34c1d0d080fb037ff2105896/googletest-populate-configure.rule"
+		},
+		{
+			"file" : "D:/POC-FINAL-CPP/Realtime-Train/build/_deps/googletest-subbuild/CMakeFiles/5a719c8c34c1d0d080fb037ff2105896/googletest-populate-download.rule"
+		},
+		{
+			"file" : "D:/POC-FINAL-CPP/Realtime-Train/build/_deps/googletest-subbuild/CMakeFiles/5a719c8c34c1d0d080fb037ff2105896/googletest-populate-install.rule"
+		},
+		{
+			"file" : "D:/POC-FINAL-CPP/Realtime-Train/build/_deps/googletest-subbuild/CMakeFiles/5a719c8c34c1d0d080fb037ff2105896/googletest-populate-mkdir.rule"
+		},
+		{
+			"file" : "D:/POC-FINAL-CPP/Realtime-Train/build/_deps/googletest-subbuild/CMakeFiles/5a719c8c34c1d0d080fb037ff2105896/googletest-populate-patch.rule"
+		},
+		{
+			"file" : "D:/POC-FINAL-CPP/Realtime-Train/build/_deps/googletest-subbuild/CMakeFiles/5a719c8c34c1d0d080fb037ff2105896/googletest-populate-test.rule"
+		},
+		{
+			"file" : "D:/POC-FINAL-CPP/Realtime-Train/build/_deps/googletest-subbuild/CMakeFiles/5a719c8c34c1d0d080fb037ff2105896/googletest-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"googletest-populate"
+		],
+		"name" : "googletest-populate"
+	}
+}

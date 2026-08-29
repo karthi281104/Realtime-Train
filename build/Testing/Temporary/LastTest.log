@@ -1,0 +1,30 @@
+Start testing: Aug 29 16:10 India Standard Time
+----------------------------------------------------------
+1/1 Testing: TCASFoundationTest.ProjectIsInitialized
+1/1 Test: TCASFoundationTest.ProjectIsInitialized
+Command: "D:/POC-FINAL-CPP/Realtime-Train/build/Debug/tcas_tests.exe" "--gtest_filter=TCASFoundationTest.ProjectIsInitialized" "--gtest_also_run_disabled_tests"
+Directory: D:/POC-FINAL-CPP/Realtime-Train/build
+"TCASFoundationTest.ProjectIsInitialized" start time: Aug 29 16:10 India Standard Time
+Output:
+----------------------------------------------------------
+Running main() from D:\POC-FINAL-CPP\Realtime-Train\build\_deps\googletest-src\googletest\src\gtest_main.cc
+Note: Google Test filter = TCASFoundationTest.ProjectIsInitialized
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from TCASFoundationTest
+[ RUN      ] TCASFoundationTest.ProjectIsInitialized
+[       OK ] TCASFoundationTest.ProjectIsInitialized (0 ms)
+[----------] 1 test from TCASFoundationTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"TCASFoundationTest.ProjectIsInitialized" end time: Aug 29 16:10 India Standard Time
+"TCASFoundationTest.ProjectIsInitialized" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Aug 29 16:10 India Standard Time

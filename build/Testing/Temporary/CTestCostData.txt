@@ -1,0 +1,2 @@
+TCASFoundationTest.ProjectIsInitialized 1 0.0122392
+---

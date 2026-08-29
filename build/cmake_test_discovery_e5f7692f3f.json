@@ -1,0 +1,17 @@
+{
+  "tests": 1,
+  "name": "AllTests",
+  "testsuites": [
+    {
+      "name": "TCASFoundationTest",
+      "tests": 1,
+      "testsuite": [
+        {
+          "name": "ProjectIsInitialized",
+          "file": "D:\\POC-FINAL-CPP\\Realtime-Train\\tests\\test_main.cpp",
+          "line": 3
+        }
+      ]
+    }
+  ]
+}

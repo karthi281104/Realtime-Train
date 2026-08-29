@@ -1,0 +1,5 @@
+if(EXISTS "D:/POC-FINAL-CPP/Realtime-Train/build/tcas_tests_e3b0c442_Debug_tests.cmake")
+  include("D:/POC-FINAL-CPP/Realtime-Train/build/tcas_tests_e3b0c442_Debug_tests.cmake")
+else()
+  add_test(tcas_tests_NOT_BUILT tcas_tests_NOT_BUILT)
+endif()

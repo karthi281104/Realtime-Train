@@ -1,0 +1,7 @@
+{
+  "physics_period_ms": 20,
+  "safety_period_ms": 100,
+  "communication_period_ms": 100,
+  "hmi_period_ms": 200,
+  "prediction_horizon_seconds": 60
+}
