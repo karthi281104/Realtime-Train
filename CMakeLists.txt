@@ -52,6 +52,13 @@ add_library(tcas_core
     src/infrastructure/Platform.cpp
     src/infrastructure/RailwayNetwork.cpp
 
+    # Module 2 - Train Management
+    src/train/Train.cpp
+    src/train/ExpressTrain.cpp
+    src/train/PassengerTrain.cpp
+    src/train/FreightTrain.cpp
+    src/train/TrainManager.cpp
+
     # Module 3 - Simulation & Clock
     src/simulation/SimClock.cpp
     src/simulation/SimulationTimer.cpp
@@ -68,6 +75,7 @@ target_include_directories(tcas_core
 
 add_executable(tcas
     src/main.cpp
+    src/demo/FoundationDemo.cpp
 )
 
 target_link_libraries(tcas
@@ -112,6 +120,13 @@ add_executable(tcas_tests
     tests/infrastructure/NodeTest.cpp
     tests/infrastructure/TrackTest.cpp
     tests/infrastructure/RailwayNetworkTest.cpp
+
+    # Module 2 Tests - Train Management
+    tests/train/TrainTest.cpp
+    tests/train/ExpressTrainTest.cpp
+    tests/train/PassengerTrainTest.cpp
+    tests/train/FreightTrainTest.cpp
+    tests/train/TrainManagerTest.cpp
 
     # Module 3 Tests - Simulation & Clock
     tests/simulation/SimClockTest.cpp
