@@ -70,6 +70,7 @@ target_include_directories(tcas_core
 
 add_executable(tcas
     src/main.cpp
+    src/demo/FoundationDemo.cpp
 )
 
 target_link_libraries(tcas
@@ -121,6 +122,7 @@ add_executable(tcas_tests
     tests/train/PassengerTrainTest.cpp
     tests/train/FreightTrainTest.cpp
     tests/train/TrainManagerTest.cpp
+
 )
 
 target_include_directories(tcas_tests
