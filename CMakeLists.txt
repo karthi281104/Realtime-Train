@@ -50,6 +50,10 @@ add_library(tcas_core
     src/infrastructure/Junction.cpp
     src/infrastructure/Platform.cpp
     src/infrastructure/RailwayNetwork.cpp
+
+    # Module 3 - Simulation & Clock
+    src/simulation/SimClock.cpp
+    src/simulation/SimulationTimer.cpp
 )
 
 target_include_directories(tcas_core
@@ -107,6 +111,11 @@ add_executable(tcas_tests
     tests/infrastructure/NodeTest.cpp
     tests/infrastructure/TrackTest.cpp
     tests/infrastructure/RailwayNetworkTest.cpp
+
+    # Module 3 Tests - Simulation & Clock
+    tests/simulation/SimClockTest.cpp
+    tests/simulation/SimulationConfigTest.cpp
+    tests/simulation/SimulationTimerTest.cpp
 )
 
 target_include_directories(tcas_tests
