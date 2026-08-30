@@ -83,6 +83,7 @@ add_executable(tcas
     src/main.cpp
     src/demo/FoundationDemo.cpp
     src/demo/SimulationDemo.cpp
+    src/demo/IntegratedDemo.cpp
 )
 
 target_link_libraries(tcas
