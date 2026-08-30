@@ -46,6 +46,8 @@ bool RailwayNetwork::addTrack(const Track& track)
         track.destination()
     );
 
+    outgoing_[track.source()].push_back(track.id());
+
     return true;
 }
 
@@ -81,6 +83,32 @@ std::size_t RailwayNetwork::nodeCount() const noexcept
 std::size_t RailwayNetwork::trackCount() const noexcept
 {
     return tracks_.size();
+}
+
+std::vector<TrackId> RailwayNetwork::getOutgoingTracks(
+    const NodeId nodeId
+) const
+{
+    const auto it = outgoing_.find(nodeId);
+
+    if (it == outgoing_.end())
+    {
+        return {};
+    }
+
+    return it->second;
+}
+
+const std::unordered_map<TrackId, Track>&
+RailwayNetwork::getAllTracks() const noexcept
+{
+    return tracks_;
+}
+
+const std::unordered_map<NodeId, Node>&
+RailwayNetwork::getAllNodes() const noexcept
+{
+    return nodes_;
 }
 
 bool RailwayNetwork::isConnected() const

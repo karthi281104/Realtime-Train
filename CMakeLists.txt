@@ -62,6 +62,12 @@ add_library(tcas_core
     # Module 3 - Simulation & Clock
     src/simulation/SimClock.cpp
     src/simulation/SimulationTimer.cpp
+
+    # Module 4 - Physics & Braking
+    src/physics/KinematicsEngine.cpp
+
+    # Module 5 - Route & Navigation
+    src/navigation/RouteNavigator.cpp
 )
 
 target_include_directories(tcas_core
@@ -133,6 +139,15 @@ add_executable(tcas_tests
     tests/simulation/SimClockTest.cpp
     tests/simulation/SimulationConfigTest.cpp
     tests/simulation/SimulationTimerTest.cpp
+
+    # Module 4 Tests - Physics & Braking
+    tests/physics/KinematicsEngineTest.cpp
+
+    # Module 5 Tests - Route & Navigation
+    tests/navigation/RouteNavigatorTest.cpp
+
+    # Integration Tests - Modules 4 & 5 with 1-3
+    tests/integration/PhysicsNavigationIntegrationTest.cpp
 )
 
 target_include_directories(tcas_tests
