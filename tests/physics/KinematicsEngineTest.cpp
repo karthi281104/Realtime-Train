@@ -352,3 +352,78 @@ TEST(KinematicsEngineTest, VerySmallDtPositionUpdate)
         1e-12
     );
 }
+
+TEST(KinematicsEngineTest, PositionStopsAtZeroVelocity)
+{
+    // v = 10 m/s
+    // a = -5 m/s²
+    // Train stops after 2 seconds.
+    //
+    // Stopping distance:
+    // d = 10*2 + 0.5*(-5)*2²
+    //   = 20 - 10
+    //   = 10 m
+    //
+    // Even though dt = 5 seconds, the train must not
+    // continue moving backwards.
+
+    EXPECT_DOUBLE_EQ(
+        KinematicsEngine::updatePosition(
+            0.0,
+            10.0,
+            -5.0,
+            5.0
+        ),
+        10.0
+    );
+}
+
+TEST(KinematicsEngineTest, PositionNegativeVelocityIsClamped)
+{
+    EXPECT_DOUBLE_EQ(
+        KinematicsEngine::updatePosition(
+            100.0,
+            -10.0,
+            0.0,
+            1.0
+        ),
+        100.0
+    );
+}
+
+TEST(KinematicsEngineTest, PositionDecelerationDoesNotMoveBackward)
+{
+    EXPECT_GE(
+        KinematicsEngine::updatePosition(
+            100.0,
+            5.0,
+            -10.0,
+            2.0
+        ),
+        100.0
+    );
+}
+
+TEST(KinematicsEngineTest, SpeedAfterDistanceRejectsNegativeVelocity)
+{
+    EXPECT_DOUBLE_EQ(
+        KinematicsEngine::speedAfterDistance(
+            -20.0,
+            1.0,
+            100.0
+        ),
+        0.0
+    );
+}
+
+TEST(KinematicsEngineTest, SpeedAfterDistanceZeroVelocityWithZeroDistance)
+{
+    EXPECT_DOUBLE_EQ(
+        KinematicsEngine::speedAfterDistance(
+            0.0,
+            1.0,
+            0.0
+        ),
+        0.0
+    );
+}

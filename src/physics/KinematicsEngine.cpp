@@ -1,4 +1,4 @@
-﻿#include "physics/KinematicsEngine.hpp"
+#include "physics/KinematicsEngine.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -6,11 +6,11 @@
 namespace tcas::physics
 {
 
-DistanceMeters KinematicsEngine::updatePosition(
-    const DistanceMeters position,
-    const SpeedMetersPerSecond velocity,
-    const AccelerationMetersPerSecondSquared acceleration,
-    const TimeSeconds dt
+double KinematicsEngine::updatePosition(
+    double position,
+    double velocity,
+    double acceleration,
+    double dt
 ) noexcept
 {
     if (dt <= 0.0)
@@ -18,7 +18,37 @@ DistanceMeters KinematicsEngine::updatePosition(
         return position;
     }
 
-    return position + velocity * dt + 0.5 * acceleration * dt * dt;
+    if (velocity < 0.0)
+    {
+        velocity = 0.0;
+    }
+
+    // No motion.
+    if (velocity == 0.0)
+    {
+        return position;
+    }
+
+    // If the train is decelerating, check whether it stops
+    // during this timestep.
+    if (acceleration < 0.0)
+    {
+        const double stoppingTime = -velocity / acceleration;
+
+        if (stoppingTime <= dt)
+        {
+            // Train reaches zero velocity before the timestep ends.
+            // Move only until it stops.
+            return position
+                + velocity * stoppingTime
+                + 0.5 * acceleration * stoppingTime * stoppingTime;
+        }
+    }
+
+    // Normal kinematic update.
+    return position
+        + velocity * dt
+        + 0.5 * acceleration * dt * dt;
 }
 
 SpeedMetersPerSecond KinematicsEngine::updateVelocity(
@@ -65,14 +95,26 @@ DistanceMeters KinematicsEngine::brakingDistance(
     return (velocity * velocity) / (2.0 * decel);
 }
 
-DistanceMeters KinematicsEngine::brakingDistance(
-    const SpeedMetersPerSecond velocity,
-    const AccelerationMetersPerSecondSquared nominalDeceleration,
-    const double gradient
+double KinematicsEngine::brakingDistance(
+    double velocity,
+    double deceleration,
+    double gradient
 ) noexcept
 {
-    const double aEff = effectiveDeceleration(nominalDeceleration, gradient);
-    return brakingDistance(velocity, aEff);
+    if (velocity <= 0.0)
+    {
+        return 0.0;
+    }
+
+    const double effective =
+        effectiveDeceleration(deceleration, gradient);
+
+    if (effective <= 0.0)
+    {
+        return 0.0;
+    }
+
+    return (velocity * velocity) / (2.0 * effective);
 }
 
 DistanceMeters KinematicsEngine::reactionDistance(
@@ -114,26 +156,37 @@ DistanceMeters KinematicsEngine::emergencyStoppingDistance(
     return brakingDistance(velocity, aEff);
 }
 
-SpeedMetersPerSecond KinematicsEngine::speedAfterDistance(
-    const SpeedMetersPerSecond initialVelocity,
-    const AccelerationMetersPerSecondSquared acceleration,
-    const DistanceMeters distance
+double KinematicsEngine::speedAfterDistance(
+    double initialVelocity,
+    double acceleration,
+    double distance
 ) noexcept
 {
-    if (distance <= 0.0)
-    {
-        return std::max(initialVelocity, 0.0);
-    }
-
-    const double v2 = initialVelocity * initialVelocity
-                    + 2.0 * acceleration * distance;
-
-    if (v2 <= 0.0)
+    // Negative initial velocity is invalid.
+    if (initialVelocity < 0.0)
     {
         return 0.0;
     }
 
-    return std::sqrt(v2);
+    // No distance travelled -> velocity unchanged.
+    if (distance <= 0.0)
+    {
+        return initialVelocity;
+    }
+
+    // v² = u² + 2as
+    const double velocitySquared =
+        initialVelocity * initialVelocity
+        + 2.0 * acceleration * distance;
+
+    // The train has decelerated to zero before
+    // travelling the requested distance.
+    if (velocitySquared <= 0.0)
+    {
+        return 0.0;
+    }
+
+    return std::sqrt(velocitySquared);
 }
 
 } // namespace tcas::physics

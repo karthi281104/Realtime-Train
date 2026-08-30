@@ -1,6 +1,7 @@
 #include "infrastructure/Track.hpp"
 
 #include <gtest/gtest.h>
+#include <stdexcept>
 
 using namespace tcas;
 using namespace tcas::infrastructure;
@@ -23,4 +24,62 @@ TEST(TrackTest, StoresTrackInformation)
     EXPECT_DOUBLE_EQ(track.length(), 1500.0);
     EXPECT_DOUBLE_EQ(track.speedLimit(), 30.0);
     EXPECT_DOUBLE_EQ(track.gradient(), 0.01);
+}
+TEST(TrackTest, RejectsZeroLength)
+{
+    EXPECT_THROW(
+        Track(
+            1,
+            1,
+            2,
+            0.0,
+            30.0,
+            0.0
+        ),
+        std::invalid_argument
+    );
+}
+
+TEST(TrackTest, RejectsNegativeLength)
+{
+    EXPECT_THROW(
+        Track(
+            1,
+            1,
+            2,
+            -100.0,
+            30.0,
+            0.0
+        ),
+        std::invalid_argument
+    );
+}
+
+TEST(TrackTest, RejectsNegativeSpeedLimit)
+{
+    EXPECT_THROW(
+        Track(
+            1,
+            1,
+            2,
+            1000.0,
+            -10.0,
+            0.0
+        ),
+        std::invalid_argument
+    );
+}
+
+TEST(TrackTest, AllowsZeroSpeedLimit)
+{
+    EXPECT_NO_THROW(
+        Track(
+            1,
+            1,
+            2,
+            1000.0,
+            0.0,
+            0.0
+        )
+    );
 }

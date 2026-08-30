@@ -1,5 +1,7 @@
 #include "infrastructure/Track.hpp"
 
+#include <stdexcept>
+
 namespace tcas::infrastructure
 {
 
@@ -18,6 +20,15 @@ Track::Track(
       speedLimit_(speedLimit),
       gradient_(gradient)
 {
+    if (length_ <= 0.0)
+    {
+        throw std::invalid_argument("Track length must be positive");
+    }
+
+    if (speedLimit_ < 0.0)
+    {
+        throw std::invalid_argument("Track speed limit cannot be negative");
+    }
 }
 
 TrackId Track::id() const noexcept
