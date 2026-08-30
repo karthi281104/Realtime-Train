@@ -1,4 +1,4 @@
-﻿#include "navigation/RouteNavigator.hpp"
+#include "navigation/RouteNavigator.hpp"
 
 #include <limits>
 #include <queue>
@@ -12,7 +12,7 @@ RouteResult RouteNavigator::findRoute(
     const infrastructure::RailwayNetwork& network,
     const NodeId origin,
     const NodeId destination
-) const
+)
 {
     // ---- Validation ------------------------------------------------
 

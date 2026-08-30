@@ -1,4 +1,4 @@
-﻿#include "physics/KinematicsEngine.hpp"
+#include "physics/KinematicsEngine.hpp"
 #include "navigation/RouteNavigator.hpp"
 #include "infrastructure/RailwayNetwork.hpp"
 #include "infrastructure/Node.hpp"
@@ -85,8 +85,6 @@ TEST(PhysicsNavigationIntegrationTest, SafeDistanceOverRouteTrack)
 
 TEST(PhysicsNavigationIntegrationTest, UphillRouteSafeDistanceShorterThanFlat)
 {
-    const RailwayNetwork net = makeTestNetwork();
-
     const SpeedMetersPerSecond v      = 25.0;
     const double braking               = 0.8;
     const double kDefaultReaction      = KinematicsEngine::kDefaultReactionTime;

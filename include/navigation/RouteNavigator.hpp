@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "infrastructure/RailwayNetwork.hpp"
 #include "navigation/RouteResult.hpp"
@@ -28,11 +28,11 @@ public:
     // sequence when a path exists. Returns success == false with the
     // appropriate FailReason otherwise.
     [[nodiscard]]
-    RouteResult findRoute(
+    static RouteResult findRoute(
         const infrastructure::RailwayNetwork& network,
         NodeId origin,
         NodeId destination
-    ) const;
+    );
 };
 
 } // namespace tcas::navigation
