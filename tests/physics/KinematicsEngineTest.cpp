@@ -2,6 +2,8 @@
 
 #include <cmath>
 #include <gtest/gtest.h>
+#include <limits>
+#include <stdexcept>
 
 using namespace tcas;
 using namespace tcas::physics;
@@ -56,6 +58,23 @@ TEST(KinematicsEngineTest, PositionDecelerating)
 // ============================================================
 // updateVelocity
 // ============================================================
+
+TEST(KinematicsEngineTest, VelocityRejectsInvalidMaximumSpeed)
+{
+    EXPECT_THROW(
+        KinematicsEngine::updateVelocity(20.0, 1.0, 1.0, -1.0),
+        std::invalid_argument
+    );
+}
+
+TEST(KinematicsEngineTest, PhysicsRejectsNonFiniteInputs)
+{
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+
+    EXPECT_THROW(KinematicsEngine::updatePosition(0.0, nan, 0.0, 1.0), std::invalid_argument);
+    EXPECT_THROW(KinematicsEngine::effectiveDeceleration(1.0, nan), std::invalid_argument);
+    EXPECT_THROW(KinematicsEngine::brakingDistance(nan, 1.0), std::invalid_argument);
+}
 
 TEST(KinematicsEngineTest, VelocityConstantNoAcceleration)
 {

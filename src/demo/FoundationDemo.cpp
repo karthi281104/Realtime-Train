@@ -262,7 +262,7 @@ void runFoundationDemo()
 
     std::cout
         << "  Connected   : "
-        << (network.isConnected() ? "YES" : "NO")
+        << (network.isWeaklyConnected() ? "YES" : "NO")
         << '\n';
 
     std::cout

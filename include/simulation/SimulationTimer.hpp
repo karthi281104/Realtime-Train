@@ -32,10 +32,8 @@ public:
     // Construct a timer that fires every `periodMs` milliseconds,
     // given a physics tick of `physicsPeriodMs` milliseconds.
     //
-    // Preconditions:
-    //   periodMs       > 0
-    //   physicsPeriodMs > 0
-    //   periodMs       >= physicsPeriodMs
+    // Throws std::invalid_argument when either period is zero or when
+    // periodMs is smaller than physicsPeriodMs.
     SimulationTimer(
         std::uint32_t periodMs,
         std::uint32_t physicsPeriodMs

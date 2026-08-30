@@ -224,7 +224,7 @@ TEST(RailwayNetworkTest, EmptyNetworkIsConnected)
 {
     RailwayNetwork network;
 
-    EXPECT_TRUE(network.isConnected());
+    EXPECT_TRUE(network.isWeaklyConnected());
 }
 
 TEST(RailwayNetworkTest, SingleNodeNetworkIsConnected)
@@ -235,14 +235,14 @@ TEST(RailwayNetworkTest, SingleNodeNetworkIsConnected)
         Node(1, "A", NodeType::Station)
     );
 
-    EXPECT_TRUE(network.isConnected());
+    EXPECT_TRUE(network.isWeaklyConnected());
 }
 
 TEST(RailwayNetworkTest, BFSDetectsConnectedNetwork)
 {
     RailwayNetwork network = createSimpleNetwork();
 
-    EXPECT_TRUE(network.isConnected());
+    EXPECT_TRUE(network.isWeaklyConnected());
 }
 
 TEST(RailwayNetworkTest, BFSDetectsDisconnectedNetwork)
@@ -265,7 +265,7 @@ TEST(RailwayNetworkTest, BFSDetectsDisconnectedNetwork)
         Track(100, 1, 2, 1000.0, 30.0, 0.0)
     );
 
-    EXPECT_FALSE(network.isConnected());
+    EXPECT_FALSE(network.isWeaklyConnected());
 }
 
 TEST(RailwayNetworkTest, DFSDetectsNoCycle)
@@ -304,4 +304,24 @@ TEST(RailwayNetworkTest, DFSDetectsCycle)
     );
 
     EXPECT_TRUE(network.hasCycle());
+}
+
+TEST(RailwayNetworkTest, OneWayChainIsWeaklyButNotStronglyConnected)
+{
+    RailwayNetwork network = createSimpleNetwork();
+
+    EXPECT_TRUE(network.isWeaklyConnected());
+    EXPECT_FALSE(network.isStronglyConnected());
+}
+
+TEST(RailwayNetworkTest, BidirectionalNetworkIsStronglyConnected)
+{
+    RailwayNetwork network;
+    network.addNode(Node(1, "A", NodeType::Station));
+    network.addNode(Node(2, "B", NodeType::Station));
+    network.addTrack(Track(101, 1, 2, 1000.0, 30.0, 0.0));
+    network.addTrack(Track(102, 2, 1, 1000.0, 30.0, 0.0));
+
+    EXPECT_TRUE(network.isWeaklyConnected());
+    EXPECT_TRUE(network.isStronglyConnected());
 }

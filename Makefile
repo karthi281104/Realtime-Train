@@ -8,7 +8,7 @@ CPPCHECK = cppcheck
 all: build
 
 configure:
-	@powershell -Command "$$env:CMAKE_TLS_VERIFY='0'; $(CMAKE) -S . -B $(BUILD_DIR) -G \"MinGW Makefiles\" -DCMAKE_BUILD_TYPE=RelWithDebInfo"
+	@$(CMAKE) -S . -B $(BUILD_DIR) -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
 build: configure
 	@$(CMAKE) --build $(BUILD_DIR) --parallel
@@ -43,7 +43,7 @@ help:
 	@echo ============================================================
 	@echo   make build             - Configure and compile the project
 	@echo   make run               - Build and launch the interactive demo
-	@echo   make test              - Run all 150 automated tests
+	@echo   make test              - Run the complete automated test suite
 	@echo   make test-verbose      - Run all tests with full CTest verbosity
 	@echo   make test-physics      - Run Module 4 Physics tests
 	@echo   make test-route        - Run Module 5 Navigation tests

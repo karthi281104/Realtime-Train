@@ -38,3 +38,13 @@ Each module must have:
 - Integration tests where applicable
 
 A module is considered complete only when its GoogleTest suite passes.
+
+## Module boundaries
+
+Each implemented domain owns matching `include/<domain>`, `src/<domain>`, and
+`tests/<domain>` directories. The `tcas_core` library contains production
+domain code; demos are linked only into the `tcas` executable. Tests are kept
+out of production targets and cross-module tests live in `tests/integration/`.
+
+`RailwayNetwork` distinguishes weak topology connectivity from strong directed
+connectivity. Route planning always follows directed tracks.

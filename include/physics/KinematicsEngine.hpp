@@ -47,7 +47,7 @@ public:
         SpeedMetersPerSecond velocity,
         AccelerationMetersPerSecondSquared acceleration,
         TimeSeconds dt
-    ) noexcept;
+    );
 
     // Compute updated velocity, clamped to [0, maximumSpeed]:
     //   v = v0 + a * dt
@@ -58,7 +58,7 @@ public:
         AccelerationMetersPerSecondSquared acceleration,
         TimeSeconds dt,
         SpeedMetersPerSecond maximumSpeed
-    ) noexcept;
+    );
 
     // ============================================================
     // Gradient-Corrected Effective Deceleration
@@ -79,7 +79,7 @@ public:
     static AccelerationMetersPerSecondSquared effectiveDeceleration(
         AccelerationMetersPerSecondSquared nominalDeceleration,
         double gradient
-    ) noexcept;
+    );
 
     // ============================================================
     // Braking Distance
@@ -94,7 +94,7 @@ public:
     static DistanceMeters brakingDistance(
         SpeedMetersPerSecond velocity,
         AccelerationMetersPerSecondSquared effectiveDecel
-    ) noexcept;
+    );
 
     // Braking distance using nominal deceleration and gradient correction.
     // Convenience overload that calls effectiveDeceleration() internally.
@@ -103,7 +103,7 @@ public:
         SpeedMetersPerSecond velocity,
         AccelerationMetersPerSecondSquared nominalDeceleration,
         double gradient
-    ) noexcept;
+    );
 
     // ============================================================
     // Reaction Distance
@@ -117,7 +117,7 @@ public:
     static DistanceMeters reactionDistance(
         SpeedMetersPerSecond velocity,
         TimeSeconds reactionTime = kDefaultReactionTime
-    ) noexcept;
+    );
 
     // ============================================================
     // Safe Distance
@@ -137,7 +137,7 @@ public:
         double gradient,
         TimeSeconds reactionTime = kDefaultReactionTime,
         DistanceMeters safetyMargin = kDefaultSafetyMargin
-    ) noexcept;
+    );
 
     // ============================================================
     // Emergency Stopping Distance
@@ -150,7 +150,7 @@ public:
         SpeedMetersPerSecond velocity,
         AccelerationMetersPerSecondSquared emergencyDeceleration,
         double gradient
-    ) noexcept;
+    );
 
     // ============================================================
     // Speed-Distance Relationship
@@ -166,7 +166,7 @@ public:
         SpeedMetersPerSecond initialVelocity,
         AccelerationMetersPerSecondSquared acceleration,
         DistanceMeters distance
-    ) noexcept;
+    );
 };
 
 } // namespace tcas::physics

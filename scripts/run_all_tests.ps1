@@ -17,7 +17,6 @@ Write-Host "========================================`n" -ForegroundColor Cyan
 
 # --- CMake Configure ---
 Write-Host "[1/3] Configuring CMake..." -ForegroundColor Yellow
-$env:CMAKE_TLS_VERIFY = "0"
 cmake -S $ProjectRoot -B $BuildDir -G "MinGW Makefiles" `
     -DCMAKE_BUILD_TYPE=RelWithDebInfo
 if ($LASTEXITCODE -ne 0) { throw "CMake configuration failed." }

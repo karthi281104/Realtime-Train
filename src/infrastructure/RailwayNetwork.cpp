@@ -111,7 +111,50 @@ RailwayNetwork::getAllNodes() const noexcept
     return nodes_;
 }
 
-bool RailwayNetwork::isConnected() const
+bool RailwayNetwork::isWeaklyConnected() const
+{
+    if (nodes_.empty())
+    {
+        return true;
+    }
+
+    std::unordered_map<NodeId, std::vector<NodeId>> undirectedAdjacency;
+    for (const auto& [nodeId, _] : nodes_)
+    {
+        undirectedAdjacency.try_emplace(nodeId);
+    }
+
+    for (const auto& [trackId, track] : tracks_)
+    {
+        undirectedAdjacency[track.source()].push_back(track.destination());
+        undirectedAdjacency[track.destination()].push_back(track.source());
+    }
+
+    std::queue<NodeId> queue;
+    std::unordered_set<NodeId> visited;
+    const NodeId startNode = nodes_.begin()->first;
+    queue.push(startNode);
+    visited.insert(startNode);
+
+    while (!queue.empty())
+    {
+        const NodeId current = queue.front();
+        queue.pop();
+
+        for (const NodeId neighbour : undirectedAdjacency.at(current))
+        {
+            if (!visited.contains(neighbour))
+            {
+                visited.insert(neighbour);
+                queue.push(neighbour);
+            }
+        }
+    }
+
+    return visited.size() == nodes_.size();
+}
+
+bool RailwayNetwork::isStronglyConnected() const
 {
     if (nodes_.empty())
     {
@@ -122,7 +165,6 @@ bool RailwayNetwork::isConnected() const
     {
         std::queue<NodeId> queue;
         std::unordered_set<NodeId> visited;
-
         queue.push(startNode);
         visited.insert(startNode);
 
@@ -131,16 +173,7 @@ bool RailwayNetwork::isConnected() const
             const NodeId current = queue.front();
             queue.pop();
 
-            const auto adjacencyIterator =
-                adjacency_.find(current);
-
-            if (adjacencyIterator == adjacency_.end())
-            {
-                continue;
-            }
-
-            for (const NodeId neighbour :
-                 adjacencyIterator->second)
+            for (const NodeId neighbour : adjacency_.at(current))
             {
                 if (!visited.contains(neighbour))
                 {
@@ -150,13 +183,13 @@ bool RailwayNetwork::isConnected() const
             }
         }
 
-        if (visited.size() == nodes_.size())
+        if (visited.size() != nodes_.size())
         {
-            return true;
+            return false;
         }
     }
 
-    return false;
+    return true;
 }
 
 bool RailwayNetwork::hasCycle() const

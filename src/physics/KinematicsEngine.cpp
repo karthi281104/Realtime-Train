@@ -2,6 +2,21 @@
 
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
+#include <string>
+
+namespace
+{
+
+void requireFinite(const double value, const char* const name)
+{
+    if (!std::isfinite(value))
+    {
+        throw std::invalid_argument(std::string{name} + " must be finite");
+    }
+}
+
+} // namespace
 
 namespace tcas::physics
 {
@@ -11,8 +26,12 @@ double KinematicsEngine::updatePosition(
     double velocity,
     double acceleration,
     double dt
-) noexcept
+)
 {
+    requireFinite(position, "position");
+    requireFinite(velocity, "velocity");
+    requireFinite(acceleration, "acceleration");
+    requireFinite(dt, "dt");
     if (dt <= 0.0)
     {
         return position;
@@ -56,8 +75,17 @@ SpeedMetersPerSecond KinematicsEngine::updateVelocity(
     const AccelerationMetersPerSecondSquared acceleration,
     const TimeSeconds dt,
     const SpeedMetersPerSecond maximumSpeed
-) noexcept
+)
 {
+    requireFinite(velocity, "velocity");
+    requireFinite(acceleration, "acceleration");
+    requireFinite(dt, "dt");
+    requireFinite(maximumSpeed, "maximumSpeed");
+
+    if (maximumSpeed < 0.0)
+    {
+        throw std::invalid_argument("maximumSpeed must not be negative");
+    }
     if (dt <= 0.0)
     {
         return velocity;
@@ -70,8 +98,10 @@ SpeedMetersPerSecond KinematicsEngine::updateVelocity(
 AccelerationMetersPerSecondSquared KinematicsEngine::effectiveDeceleration(
     const AccelerationMetersPerSecondSquared nominalDeceleration,
     const double gradient
-) noexcept
+)
 {
+    requireFinite(nominalDeceleration, "nominalDeceleration");
+    requireFinite(gradient, "gradient");
     // Positive gradient (uphill): gravity component assists braking.
     // Negative gradient (downhill): gravity component opposes braking.
     const double gradientCorrection = kGravity * gradient;
@@ -84,8 +114,10 @@ AccelerationMetersPerSecondSquared KinematicsEngine::effectiveDeceleration(
 DistanceMeters KinematicsEngine::brakingDistance(
     const SpeedMetersPerSecond velocity,
     const AccelerationMetersPerSecondSquared effectiveDecel
-) noexcept
+)
 {
+    requireFinite(velocity, "velocity");
+    requireFinite(effectiveDecel, "effectiveDecel");
     if (velocity <= 0.0)
     {
         return 0.0;
@@ -99,8 +131,11 @@ double KinematicsEngine::brakingDistance(
     double velocity,
     double deceleration,
     double gradient
-) noexcept
+)
 {
+    requireFinite(velocity, "velocity");
+    requireFinite(deceleration, "nominalDeceleration");
+    requireFinite(gradient, "gradient");
     if (velocity <= 0.0)
     {
         return 0.0;
@@ -120,8 +155,10 @@ double KinematicsEngine::brakingDistance(
 DistanceMeters KinematicsEngine::reactionDistance(
     const SpeedMetersPerSecond velocity,
     const TimeSeconds reactionTime
-) noexcept
+)
 {
+    requireFinite(velocity, "velocity");
+    requireFinite(reactionTime, "reactionTime");
     if (velocity <= 0.0 || reactionTime <= 0.0)
     {
         return 0.0;
@@ -136,8 +173,13 @@ DistanceMeters KinematicsEngine::safeDistance(
     const double gradient,
     const TimeSeconds reactionTime,
     const DistanceMeters safetyMargin
-) noexcept
+)
 {
+    requireFinite(velocity, "velocity");
+    requireFinite(nominalDeceleration, "nominalDeceleration");
+    requireFinite(gradient, "gradient");
+    requireFinite(reactionTime, "reactionTime");
+    requireFinite(safetyMargin, "safetyMargin");
     const double dReaction = reactionDistance(velocity, reactionTime);
     const double dBraking  = brakingDistance(velocity, nominalDeceleration, gradient);
     const double margin    = std::max(safetyMargin, 0.0);
@@ -149,8 +191,11 @@ DistanceMeters KinematicsEngine::emergencyStoppingDistance(
     const SpeedMetersPerSecond velocity,
     const AccelerationMetersPerSecondSquared emergencyDeceleration,
     const double gradient
-) noexcept
+)
 {
+    requireFinite(velocity, "velocity");
+    requireFinite(emergencyDeceleration, "emergencyDeceleration");
+    requireFinite(gradient, "gradient");
     // Emergency braking: no reaction time component.
     const double aEff = effectiveDeceleration(emergencyDeceleration, gradient);
     return brakingDistance(velocity, aEff);
@@ -160,8 +205,11 @@ double KinematicsEngine::speedAfterDistance(
     double initialVelocity,
     double acceleration,
     double distance
-) noexcept
+)
 {
+    requireFinite(initialVelocity, "initialVelocity");
+    requireFinite(acceleration, "acceleration");
+    requireFinite(distance, "distance");
     // Negative initial velocity is invalid.
     if (initialVelocity < 0.0)
     {

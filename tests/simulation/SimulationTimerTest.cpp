@@ -2,12 +2,29 @@
 
 #include <gtest/gtest.h>
 
+#include <stdexcept>
+
 using namespace tcas;
 using namespace tcas::simulation;
 
 // ============================================================
 // Interval Calculation
 // ============================================================
+
+TEST(SimulationTimerTest, RejectsZeroPeriod)
+{
+    EXPECT_THROW(SimulationTimer(0u, 20u), std::invalid_argument);
+}
+
+TEST(SimulationTimerTest, RejectsZeroPhysicsPeriod)
+{
+    EXPECT_THROW(SimulationTimer(100u, 0u), std::invalid_argument);
+}
+
+TEST(SimulationTimerTest, RejectsPeriodSmallerThanPhysicsPeriod)
+{
+    EXPECT_THROW(SimulationTimer(10u, 20u), std::invalid_argument);
+}
 
 TEST(SimulationTimerTest, SafetyTimerIntervalIs5Ticks)
 {

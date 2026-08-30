@@ -1,6 +1,6 @@
 ﻿#include "simulation/SimulationTimer.hpp"
 
-#include <cassert>
+#include <stdexcept>
 
 namespace tcas::simulation
 {
@@ -11,19 +11,23 @@ SimulationTimer::SimulationTimer(
 )
     : intervalTicks_{ 1u }
 {
-    assert(periodMs        > 0u && "SimulationTimer: periodMs must be > 0");
-    assert(physicsPeriodMs > 0u && "SimulationTimer: physicsPeriodMs must be > 0");
-    assert(periodMs >= physicsPeriodMs &&
-           "SimulationTimer: periodMs must be >= physicsPeriodMs");
+    if (periodMs == 0u || physicsPeriodMs == 0u)
+    {
+        throw std::invalid_argument(
+            "SimulationTimer periods must be greater than zero"
+        );
+    }
+
+    if (periodMs < physicsPeriodMs)
+    {
+        throw std::invalid_argument(
+            "SimulationTimer period must not be smaller than physics period"
+        );
+    }
 
     // Floor-divide so we always get a whole number of ticks.
     intervalTicks_ = static_cast<SimTimeTick>(periodMs / physicsPeriodMs);
 
-    // Guard against a zero interval (would fire every tick regardless).
-    if (intervalTicks_ == 0u)
-    {
-        intervalTicks_ = 1u;
-    }
 }
 
 bool SimulationTimer::shouldFire(const SimTimeTick tickCount) const noexcept

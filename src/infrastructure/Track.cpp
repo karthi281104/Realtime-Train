@@ -1,5 +1,6 @@
 #include "infrastructure/Track.hpp"
 
+#include <cmath>
 #include <stdexcept>
 
 namespace tcas::infrastructure
@@ -20,14 +21,19 @@ Track::Track(
       speedLimit_(speedLimit),
       gradient_(gradient)
 {
-    if (length_ <= 0.0)
+    if (!std::isfinite(length_) || length_ <= 0.0)
     {
         throw std::invalid_argument("Track length must be positive");
     }
 
-    if (speedLimit_ < 0.0)
+    if (!std::isfinite(speedLimit_) || speedLimit_ < 0.0)
     {
         throw std::invalid_argument("Track speed limit cannot be negative");
+    }
+
+    if (!std::isfinite(gradient_))
+    {
+        throw std::invalid_argument("Track gradient must be finite");
     }
 }
 

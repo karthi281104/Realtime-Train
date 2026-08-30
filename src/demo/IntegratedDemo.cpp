@@ -60,7 +60,7 @@ void runIntegratedDemo()
 
     std::cout << "Nodes added  : " << network.nodeCount() << " (Central, Alpha Jct, Beta Jct, North Term, South Harbor)\n";
     std::cout << "Tracks added : " << network.trackCount() << " (Tracks 101, 102, 103, 104 with gradient profiles)\n";
-    std::cout << "Graph status : Connected = " << (network.isConnected() ? "YES" : "NO")
+    std::cout << "Graph status : Weakly connected = " << (network.isWeaklyConnected() ? "YES" : "NO")
               << ", Cycles = " << (network.hasCycle() ? "YES" : "NO") << "\n";
 
     // -------------------------------------------------------------------------

@@ -31,8 +31,15 @@ public:
     [[nodiscard]]
     std::size_t trackCount() const noexcept;
 
+    // Returns true when the underlying undirected topology is connected.
+    // Direction is ignored for this topology check.
     [[nodiscard]]
-    bool isConnected() const;
+    bool isWeaklyConnected() const;
+
+    // Returns true when every node can reach every other node following
+    // track direction.
+    [[nodiscard]]
+    bool isStronglyConnected() const;
 
     [[nodiscard]]
     bool hasCycle() const;

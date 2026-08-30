@@ -1,6 +1,7 @@
 #include "infrastructure/Track.hpp"
 
 #include <gtest/gtest.h>
+#include <limits>
 #include <stdexcept>
 
 using namespace tcas;
@@ -68,6 +69,16 @@ TEST(TrackTest, RejectsNegativeSpeedLimit)
         ),
         std::invalid_argument
     );
+}
+
+TEST(TrackTest, RejectsNonFiniteValues)
+{
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const double infinity = std::numeric_limits<double>::infinity();
+
+    EXPECT_THROW(Track(1, 1, 2, nan, 30.0, 0.0), std::invalid_argument);
+    EXPECT_THROW(Track(1, 1, 2, 100.0, infinity, 0.0), std::invalid_argument);
+    EXPECT_THROW(Track(1, 1, 2, 100.0, 30.0, nan), std::invalid_argument);
 }
 
 TEST(TrackTest, AllowsZeroSpeedLimit)

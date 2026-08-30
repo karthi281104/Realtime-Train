@@ -4,6 +4,14 @@
 
 Module 5 is the route planning and graph navigation engine of TCAS.
 
+## Verification
+
+The module is exercised by `tests/navigation/RouteNavigatorTest.cpp` and by
+`tests/integration/PhysicsNavigationIntegrationTest.cpp`. Coverage includes
+directed routing, disconnected networks, parallel tracks, path reconstruction,
+and physics/navigation seams. Run the complete suite from the repository root
+with `ctest --test-dir build --output-on-failure`.
+
 It executes Dijkstra’s shortest-path algorithm over the directed `RailwayNetwork` graph, returning an ordered sequence of `TrackId`s and the total path distance in metres.
 
 ```text

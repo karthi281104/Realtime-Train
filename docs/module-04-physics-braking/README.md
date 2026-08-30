@@ -4,6 +4,14 @@
 
 Module 4 is the kinematics and braking dynamics engine of TCAS.
 
+## Verification
+
+The module is exercised by `tests/physics/KinematicsEngineTest.cpp` and by
+`tests/integration/PhysicsNavigationIntegrationTest.cpp`. The tests cover
+ordinary motion, stopping behaviour, gradient correction, clamping, and
+rejection of non-finite values and an invalid maximum speed. Run the complete
+suite from the repository root with `ctest --test-dir build --output-on-failure`.
+
 It provides deterministic mathematical functions for train motion simulation, gradient-corrected braking deceleration, driver reaction distance calculation, and safe stopping distance estimation.
 
 ```text
