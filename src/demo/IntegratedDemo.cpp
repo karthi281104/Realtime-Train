@@ -1,4 +1,4 @@
-﻿#include "demo/IntegratedDemo.hpp"
+#include "demo/IntegratedDemo.hpp"
 
 #include "common/Types.hpp"
 #include "infrastructure/Node.hpp"
@@ -13,6 +13,10 @@
 #include "simulation/SimulationTimer.hpp"
 #include "physics/KinematicsEngine.hpp"
 #include "navigation/RouteNavigator.hpp"
+#include "sensor/Odometer.hpp"
+#include "sensor/StateEstimator.hpp"
+#include "communication/CommunicationChannel.hpp"
+#include "communication/Message.hpp"
 
 #include <chrono>
 #include <iomanip>
@@ -31,10 +35,12 @@ void runIntegratedDemo()
     using namespace tcas::simulation;
     using namespace tcas::physics;
     using namespace tcas::navigation;
+    using namespace tcas::sensor;
+    using namespace tcas::communication;
 
     std::cout << "\n";
     std::cout << "========================================================================\n";
-    std::cout << "        TCAS INTEGRATED SYSTEM DEMO (MODULES 1 TO 5 ACTIVE)\n";
+    std::cout << "        TCAS INTEGRATED SYSTEM DEMO (MODULES 1 TO 7 ACTIVE)\n";
     std::cout << "========================================================================\n";
 
     // -------------------------------------------------------------------------
@@ -240,12 +246,166 @@ void runIntegratedDemo()
     }
 
     std::cout << "----------------------------------------------------------------------------------------------------\n";
-    std::cout << "\n[RESULT] All 5 modules successfully executed in full integration:\n";
+
+    // -------------------------------------------------------------------------
+    // 5. MODULE 6: SENSOR & STATE ESTIMATION (Kalman Filter)
+    // -------------------------------------------------------------------------
+    std::cout << "\n[MODULE 6] SENSOR FUSION & KALMAN FILTER STATE ESTIMATION\n";
+    std::cout << "------------------------------------------------------------------------\n";
+
+    SensorNoiseConfig noiseConfig;
+    noiseConfig.driftRatePerSecond    = 0.01; // 1% wheel slip drift
+    noiseConfig.measurementNoisePos   = 2.0;  // 2m^2 position noise
+    noiseConfig.measurementNoiseVel   = 0.5;  // 0.5 (m/s)^2 velocity noise
+    noiseConfig.measurementNoiseBalise = 0.01; // Very precise balise fix
+
+    Odometer  odometer(noiseConfig);
+    StateEstimator estimator(noiseConfig, 0.0, 15.0); // Start at 0m, 15 m/s
+
+    std::cout << std::left
+              << std::setw(6)  << "Step"
+              << std::setw(10) << "TruePos"
+              << std::setw(10) << "MeasPos"
+              << std::setw(10) << "EstPos"
+              << std::setw(10) << "EstVel"
+              << std::setw(12) << "PosUncert"
+              << std::setw(12) << "Degraded"
+              << "\n";
+    std::cout << "------------------------------------------------------------------------\n";
+
+    double truePos = 0.0;
+    double trueVel = 15.0;
+    const double trueDt  = 0.1; // 100ms step
+
+    for (int step = 0; step < 15; ++step)
+    {
+        // Ground truth advance
+        truePos += trueVel * trueDt;
+
+        // Sensor measurement with wheel slip drift
+        const auto meas = odometer.measure(truePos, trueVel, 0.0, trueDt,
+                                            static_cast<SimTimeTick>(step));
+
+        // Kalman predict + update
+        estimator.predict(trueDt, static_cast<SimTimeTick>(step));
+        estimator.updateOdometry(meas);
+
+        // Simulate balise at step 10 (absolute position anchor at 15.0m)
+        if (step == 10)
+        {
+            BaliseTransponder balise{ .baliseId = 1, .trackId = 101, .exactPosition = truePos };
+            estimator.updateBalise(balise);
+            std::cout << "  [BALISE FIX at step 10: absolute anchor = " << truePos << " m]\n";
+        }
+
+        const EstimatedState est = estimator.estimatedState();
+
+        std::cout << std::left
+                  << std::setw(6)  << step
+                  << std::setw(10) << truePos
+                  << std::setw(10) << meas.rawPosition
+                  << std::setw(10) << est.position
+                  << std::setw(10) << est.velocity
+                  << std::setw(12) << est.positionUncertainty
+                  << std::setw(12) << (est.isDegraded ? "YES" : "NO")
+                  << "\n";
+    }
+
+    std::cout << "Odometer accumulated drift: " << odometer.accumulatedDrift() << " m\n";
+
+    // -------------------------------------------------------------------------
+    // 6. MODULE 7: V2V COMMUNICATION SIMULATION
+    // -------------------------------------------------------------------------
+    std::cout << "\n[MODULE 7] V2V/V2I WIRELESS COMMUNICATION SIMULATION\n";
+    std::cout << "------------------------------------------------------------------------\n";
+
+    ChannelConfig channelCfg;
+    channelCfg.latencyTicks  = 2;       // 2-tick propagation delay
+    channelCfg.maxRangeMeters = 5000.0; // 5 km radio range
+
+    CommunicationChannel channel(channelCfg);
+    channel.registerEntity(1); // Express Train
+    channel.registerEntity(2); // Passenger Train
+    channel.registerEntity(3); // Freight Train
+
+    // Train 1 broadcasts heartbeat at tick 0
+    const auto heartbeat = Message::makeHeartbeat(1001, 1, 0);
+    channel.sendMessage(heartbeat, 0.0, 0.0);
+
+    // Train 2 sends movement authority to Train 3 at tick 0
+    MovementAuthorityPayload maPayload{
+        .trainId           = 3,
+        .permittedDistance = 3000.0,
+        .targetSpeed       = 22.0,
+        .validUntilTick    = 100
+    };
+    const auto maMsg = Message::makeMovementAuthority(1002, 2, 3, 0, maPayload);
+    channel.sendMessage(maMsg, 500.0, 1200.0);
+
+    // Train 2 sends emergency brake to Train 1 (close range)
+    EmergencyBrakePayload ebPayload{
+        .targetTrainId   = 1,
+        .dangerZoneStart = 2800.0,
+        .dangerZoneEnd   = 3000.0,
+        .reasonCode      = 42
+    };
+    const auto ebMsg = Message::makeEmergencyBrake(1003, 2, 1, 0, ebPayload);
+    channel.sendMessage(ebMsg, 500.0, 100.0);
+
+    // Advance channel 2 ticks to deliver all messages
+    channel.step(1);
+    channel.step(2);
+
+    std::cout << "Channel stats after 3 transmissions:\n";
+    std::cout << "  Total sent     : " << channel.totalSent()      << "\n";
+    std::cout << "  Total delivered: " << channel.totalDelivered()  << "\n";
+    std::cout << "  Total dropped  : " << channel.totalDropped()    << "\n";
+    std::cout << "  Delivery rate  : " << channel.deliveryRate() * 100.0 << "%\n\n";
+
+    // Check Train 2 and 3 received heartbeat from Train 1
+    std::cout << "Train 2 mailbox: " << (channel.hasMessages(2) ? "HAS messages" : "empty") << "\n";
+    std::cout << "Train 3 mailbox: " << (channel.hasMessages(3) ? "HAS messages" : "empty") << "\n";
+
+    const auto msgs2 = channel.receiveMessages(2);
+    const auto msgs3 = channel.receiveMessages(3);
+
+    std::cout << "Train 2 received " << msgs2.size() << " message(s):\n";
+    for (const auto& m : msgs2)
+    {
+        std::cout << "  MsgId=" << m.header.messageId
+                  << " from=" << m.header.senderId
+                  << " type=" << static_cast<int>(m.header.type)
+                  << " priority=" << static_cast<int>(m.header.priority) << "\n";
+    }
+
+    std::cout << "Train 3 received " << msgs3.size() << " message(s):\n";
+    for (const auto& m : msgs3)
+    {
+        std::cout << "  MsgId=" << m.header.messageId
+                  << " from=" << m.header.senderId
+                  << " type=" << static_cast<int>(m.header.type)
+                  << " priority=" << static_cast<int>(m.header.priority) << "\n";
+    }
+
+    // Train 1 mailbox for emergency brake from Train 2
+    const auto msgs1 = channel.receiveMessages(1);
+    std::cout << "Train 1 received " << msgs1.size() << " message(s) (including emergency brake):\n";
+    for (const auto& m : msgs1)
+    {
+        std::cout << "  MsgId=" << m.header.messageId
+                  << " from=" << m.header.senderId
+                  << " type=" << static_cast<int>(m.header.type)
+                  << " priority=" << static_cast<int>(m.header.priority) << "\n";
+    }
+
+    std::cout << "\n[RESULT] All 7 modules successfully executed in full integration:\n";
     std::cout << "  - Module 1 (Infrastructure) : Railway topology with grades & speed limits loaded\n";
     std::cout << "  - Module 2 (Train Fleet)    : Multi-class train fleet managed with physics properties\n";
-    std::cout << "  - Module 3 (Simulation)     : Deterministic discrete tick clock synchronized at " << simConfig.physicsPeriodMs << " ms\n";
+    std::cout << "  - Module 3 (Simulation)     : Deterministic discrete tick clock synchronized\n";
     std::cout << "  - Module 4 (Physics)        : Gradient-corrected dynamic braking distances and kinematics calculated\n";
     std::cout << "  - Module 5 (Navigation)     : Dijkstra optimal track route planned and executed\n";
+    std::cout << "  - Module 6 (Sensor/Kalman)  : Odometer drift + Kalman filter state estimation with balise anchor\n";
+    std::cout << "  - Module 7 (Communication)  : V2V/V2I wireless channel with latency, range, and broadcast routing\n";
     std::cout << "========================================================================\n\n";
 }
 

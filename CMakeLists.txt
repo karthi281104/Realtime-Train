@@ -68,6 +68,14 @@ add_library(tcas_core
 
     # Module 5 - Route & Navigation
     src/navigation/RouteNavigator.cpp
+
+    # Module 6 - Sensor & State Estimation
+    src/sensor/Odometer.cpp
+    src/sensor/StateEstimator.cpp
+
+    # Module 7 - Communication Simulation
+    src/communication/Message.cpp
+    src/communication/CommunicationChannel.cpp
 )
 
 target_include_directories(tcas_core
@@ -149,6 +157,14 @@ add_executable(tcas_tests
 
     # Integration Tests - Modules 4 & 5 with 1-3
     tests/integration/PhysicsNavigationIntegrationTest.cpp
+
+    # Module 6 Tests - Sensor & State Estimation
+    tests/sensor/OdometerTest.cpp
+    tests/sensor/StateEstimatorTest.cpp
+
+    # Module 7 Tests - Communication Simulation
+    tests/communication/MessageTest.cpp
+    tests/communication/CommunicationChannelTest.cpp
 )
 
 target_include_directories(tcas_tests
