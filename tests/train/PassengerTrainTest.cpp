@@ -28,7 +28,7 @@ TEST(PassengerTrainTest, SupportsPolymorphism)
         1.1
     );
 
-    Train* base = &train;
+    const Train* base = &train;
 
     EXPECT_EQ(base->type(), TrainType::Passenger);
 }

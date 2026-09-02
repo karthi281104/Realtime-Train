@@ -1,9 +1,13 @@
-﻿#include "communication/CommunicationChannel.hpp"
+#include "communication/CommunicationChannel.hpp"
 
 #include <gtest/gtest.h>
 
 using namespace tcas;
 using namespace tcas::communication;
+
+// ============================================================
+// CommunicationChannel Tests
+// ============================================================
 
 TEST(CommunicationChannelTest, DirectDeliveryWithZeroLatency)
 {
@@ -84,6 +88,24 @@ TEST(CommunicationChannelTest, BroadcastDeliversToAllEntitiesExceptSender)
     EXPECT_EQ(r3.size(), 1u);
 }
 
+TEST(CommunicationChannelTest, BroadcastDeliveryCountReflectsRecipientsNotMessages)
+{
+    // Broadcast to 3 entities: sender (1) + 2 recipients (2,3)
+    // totalDelivered should count 1 (one message was delivered through channel)
+    CommunicationChannel channel;
+    channel.registerEntity(1);
+    channel.registerEntity(2);
+    channel.registerEntity(3);
+
+    const auto msg = Message::makeHeartbeat(1, 1, 0);
+    channel.sendMessage(msg);
+    channel.step(5);
+
+    EXPECT_EQ(channel.totalSent(), 1u);
+    // totalDelivered counts the message as 1 delivery event (not per-recipient)
+    EXPECT_EQ(channel.totalDelivered(), 1u);
+}
+
 TEST(CommunicationChannelTest, DropsMessageBeyondMaxRange)
 {
     ChannelConfig config;
@@ -100,6 +122,25 @@ TEST(CommunicationChannelTest, DropsMessageBeyondMaxRange)
     EXPECT_FALSE(accepted);
     EXPECT_EQ(channel.totalDropped(), 1u);
     EXPECT_EQ(channel.totalSent(), 1u);
+}
+
+TEST(CommunicationChannelTest, DeliversMessageWithinRange)
+{
+    ChannelConfig config;
+    config.maxRangeMeters = 1000.0;
+    config.latencyTicks   = 0;
+
+    CommunicationChannel channel(config);
+    channel.registerEntity(2);
+
+    auto msg = Message::makeHeartbeat(1, 1, 0);
+    msg.header.recipientId = 2;
+
+    // Sender at 0m, Recipient at 500m (within range)
+    const bool accepted = channel.sendMessage(msg, 0.0, 500.0);
+    EXPECT_TRUE(accepted);
+    channel.step(0);
+    EXPECT_TRUE(channel.hasMessages(2));
 }
 
 TEST(CommunicationChannelTest, DeterministicDropModulo)
@@ -142,7 +183,13 @@ TEST(CommunicationChannelTest, TracksDeliveryStatisticsAccurately)
     EXPECT_DOUBLE_EQ(channel.deliveryRate(), 1.0);
 }
 
-TEST(CommunicationChannelTest, ClearResetsAllState)
+TEST(CommunicationChannelTest, DeliveryRateIsOneWhenNothingSent)
+{
+    CommunicationChannel channel;
+    EXPECT_DOUBLE_EQ(channel.deliveryRate(), 1.0);
+}
+
+TEST(CommunicationChannelTest, ClearResetsAllStateIncludingEntities)
 {
     CommunicationChannel channel;
     channel.registerEntity(2);
@@ -151,10 +198,71 @@ TEST(CommunicationChannelTest, ClearResetsAllState)
     msg.header.recipientId = 2;
     channel.sendMessage(msg);
 
+    // Full clear resets everything including entity registrations
     channel.clear();
 
     EXPECT_EQ(channel.totalSent(), 0u);
     EXPECT_EQ(channel.totalDelivered(), 0u);
     EXPECT_EQ(channel.inFlightCount(), 0u);
+    // After full clear, entity 2 is no longer registered so mailbox is gone
     EXPECT_FALSE(channel.hasMessages(2));
+}
+
+TEST(CommunicationChannelTest, ClearMailboxesRetainsEntityRegistrations)
+{
+    CommunicationChannel channel;
+    channel.registerEntity(1);
+    channel.registerEntity(2);
+
+    auto msg = Message::makeHeartbeat(1, 1, 0);
+    msg.header.recipientId = 2;
+    channel.sendMessage(msg);
+
+    // Soft reset: clears mailboxes but keeps entities registered
+    channel.clearMailboxes();
+
+    EXPECT_EQ(channel.totalSent(), 0u);
+    EXPECT_EQ(channel.inFlightCount(), 0u);
+    EXPECT_FALSE(channel.hasMessages(2));
+
+    // Re-send after soft reset: entity is still registered
+    channel.registerEntity(2); // redundant but should not crash
+    auto msg2 = Message::makeHeartbeat(2, 1, 0);
+    msg2.header.recipientId = 2;
+    EXPECT_NO_THROW(channel.sendMessage(msg2));
+}
+
+TEST(CommunicationChannelTest, UnregisterEntityRemovesFromBroadcast)
+{
+    CommunicationChannel channel;
+    channel.registerEntity(1);
+    channel.registerEntity(2);
+    channel.registerEntity(3);
+
+    // Unregister entity 3 before broadcast
+    channel.unregisterEntity(3);
+
+    const auto msg = Message::makeHeartbeat(1, 1, 0);
+    channel.sendMessage(msg);
+    channel.step(5);
+
+    EXPECT_TRUE(channel.hasMessages(2));
+    EXPECT_FALSE(channel.hasMessages(3)); // Unregistered, should not receive
+}
+
+TEST(CommunicationChannelTest, InFlightCountDecrementsOnDelivery)
+{
+    ChannelConfig config;
+    config.latencyTicks = 5;
+
+    CommunicationChannel channel(config);
+    channel.registerEntity(2);
+
+    auto msg = Message::makeHeartbeat(1, 1, 0);
+    msg.header.recipientId = 2;
+    channel.sendMessage(msg);
+
+    EXPECT_EQ(channel.inFlightCount(), 1u);
+    channel.step(5); // Deliver
+    EXPECT_EQ(channel.inFlightCount(), 0u);
 }

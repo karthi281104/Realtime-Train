@@ -162,6 +162,20 @@ void CommunicationChannel::clear() noexcept
 {
     inFlight_.clear();
     mailboxes_.clear();
+    registeredEntities_.clear();
+    totalSent_ = 0;
+    totalDelivered_ = 0;
+    totalDropped_ = 0;
+}
+
+void CommunicationChannel::clearMailboxes() noexcept
+{
+    inFlight_.clear();
+    // Re-create empty mailboxes for all still-registered entities
+    for (const std::uint32_t entityId : registeredEntities_)
+    {
+        mailboxes_[entityId].clear();
+    }
     totalSent_ = 0;
     totalDelivered_ = 0;
     totalDropped_ = 0;

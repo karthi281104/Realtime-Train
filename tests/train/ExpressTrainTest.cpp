@@ -28,7 +28,7 @@ TEST(ExpressTrainTest, SupportsPolymorphism)
         1.2
     );
 
-    Train* base = &train;
+    const Train* base = &train;
 
     EXPECT_EQ(base->type(), TrainType::Express);
     EXPECT_EQ(base->id(), 101);

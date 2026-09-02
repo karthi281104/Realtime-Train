@@ -69,8 +69,11 @@ public:
     [[nodiscard]]
     double deliveryRate() const noexcept;
 
-    // Reset all queues and counters
+    // Reset all queues and counters (full channel reset including entity registrations)
     void clear() noexcept;
+
+    // Soft reset: clear in-flight messages and mailboxes but retain entity registrations
+    void clearMailboxes() noexcept;
 
 private:
     ChannelConfig config_;

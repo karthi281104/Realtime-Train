@@ -28,7 +28,7 @@ TEST(FreightTrainTest, SupportsPolymorphism)
         0.8
     );
 
-    Train* base = &train;
+    const Train* base = &train;
 
     EXPECT_EQ(base->type(), TrainType::Freight);
 }

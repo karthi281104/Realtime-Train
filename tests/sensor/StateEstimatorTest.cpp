@@ -5,6 +5,10 @@
 using namespace tcas;
 using namespace tcas::sensor;
 
+// ============================================================
+// StateEstimator Tests
+// ============================================================
+
 TEST(StateEstimatorTest, InitialStateIsAccurate)
 {
     StateEstimator estimator({}, 100.0, 25.0);
@@ -38,6 +42,20 @@ TEST(StateEstimatorTest, PredictZeroDtLeavesStateUnchanged)
     EXPECT_DOUBLE_EQ(estimator.velocity(), 15.0);
 }
 
+TEST(StateEstimatorTest, PredictGrowsCovarianceOverTime)
+{
+    StateEstimator estimator({}, 0.0, 10.0);
+    const double initialUncertainty = estimator.positionUncertainty();
+
+    // After 10 predictions with no update, uncertainty should grow
+    for (int i = 0; i < 10; ++i)
+    {
+        estimator.predict(0.1, static_cast<SimTimeTick>(i));
+    }
+
+    EXPECT_GT(estimator.positionUncertainty(), initialUncertainty);
+}
+
 TEST(StateEstimatorTest, UpdateOdometryFusesMeasurements)
 {
     StateEstimator estimator({}, 10.0, 5.0);
@@ -57,6 +75,30 @@ TEST(StateEstimatorTest, UpdateOdometryFusesMeasurements)
     EXPECT_TRUE(updated);
     EXPECT_GT(estimator.position(), 10.0);
     EXPECT_LT(estimator.positionUncertainty(), initialPosUncertainty);
+}
+
+TEST(StateEstimatorTest, UpdateOdometryReducesUncertainty)
+{
+    StateEstimator estimator({}, 0.0, 20.0);
+
+    // Grow uncertainty via predictions
+    for (int i = 0; i < 5; ++i)
+    {
+        estimator.predict(0.1, static_cast<SimTimeTick>(i));
+    }
+
+    const double uncertaintyBeforeUpdate = estimator.positionUncertainty();
+
+    OdometerMeasurement meas{
+        .rawPosition     = estimator.position(),
+        .rawVelocity     = 20.0,
+        .rawAcceleration = 0.0,
+        .timestamp       = 5,
+        .isValid         = true
+    };
+
+    estimator.updateOdometry(meas);
+    EXPECT_LT(estimator.positionUncertainty(), uncertaintyBeforeUpdate);
 }
 
 TEST(StateEstimatorTest, BaliseUpdateReducesPositionUncertaintySignificantly)
@@ -84,6 +126,24 @@ TEST(StateEstimatorTest, BaliseUpdateReducesPositionUncertaintySignificantly)
     EXPECT_LT(estimator.positionUncertainty(), highUncertainty);
 }
 
+TEST(StateEstimatorTest, BaliseUpdateClearsOutlierCountAndDegradedState)
+{
+    StateEstimator estimator({}, 100.0, 20.0);
+
+    // Push 3 invalid measurements to trigger degradation
+    OdometerMeasurement invalid{
+        .rawPosition = 0.0, .rawVelocity = 0.0, .rawAcceleration = 0.0,
+        .timestamp = 1, .isValid = false
+    };
+    estimator.updateOdometry(invalid);
+    EXPECT_TRUE(estimator.isDegraded());
+
+    // Balise fix should clear degraded state
+    BaliseTransponder balise{ .baliseId = 1, .trackId = 101, .exactPosition = 100.0 };
+    estimator.updateBalise(balise);
+    EXPECT_FALSE(estimator.isDegraded());
+}
+
 TEST(StateEstimatorTest, RejectsStatisticalOutliers)
 {
     StateEstimator estimator({}, 100.0, 20.0);
@@ -103,7 +163,7 @@ TEST(StateEstimatorTest, RejectsStatisticalOutliers)
     EXPECT_NEAR(estimator.position(), 100.0, 5.0);
 }
 
-TEST(StateEstimatorTest, DegradesAfterConsecutiveFailures)
+TEST(StateEstimatorTest, DegradesAfterInvalidMeasurement)
 {
     StateEstimator estimator({}, 50.0, 10.0);
 
@@ -119,6 +179,24 @@ TEST(StateEstimatorTest, DegradesAfterConsecutiveFailures)
     EXPECT_TRUE(estimator.isDegraded());
 }
 
+TEST(StateEstimatorTest, DegradesAfterConsecutiveOutliers)
+{
+    StateEstimator estimator({}, 50.0, 10.0);
+
+    OdometerMeasurement spike{
+        .rawPosition = 99999.0, .rawVelocity = 10.0, .rawAcceleration = 0.0,
+        .timestamp = 1, .isValid = true
+    };
+
+    // Need >= 3 consecutive outliers to trigger degradation
+    estimator.updateOdometry(spike);
+    estimator.updateOdometry(spike);
+    EXPECT_FALSE(estimator.isDegraded()); // 2 outliers: not yet
+
+    estimator.updateOdometry(spike);
+    EXPECT_TRUE(estimator.isDegraded());  // 3 outliers: now degraded
+}
+
 TEST(StateEstimatorTest, ResetRestoresState)
 {
     StateEstimator estimator({}, 200.0, 30.0);
@@ -129,4 +207,13 @@ TEST(StateEstimatorTest, ResetRestoresState)
     EXPECT_DOUBLE_EQ(estimator.position(), 0.0);
     EXPECT_DOUBLE_EQ(estimator.velocity(), 0.0);
     EXPECT_FALSE(estimator.isDegraded());
+}
+
+TEST(StateEstimatorTest, EstimatedStateReflectsTimestamp)
+{
+    StateEstimator estimator({}, 0.0, 5.0);
+    estimator.predict(0.5, 42);
+
+    const auto state = estimator.estimatedState();
+    EXPECT_EQ(state.timestamp, 42u);
 }

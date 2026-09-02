@@ -41,34 +41,40 @@ void StateEstimator::predict(const TimeSeconds dt, const SimTimeTick timestamp) 
     const double vNew = x_[1] + x_[2] * dt;
     const double aNew = x_[2];
 
-    x_[0] = std::max(0.0, pNew);
-    x_[1] = std::max(0.0, vNew);
+    // Allow negative velocity only in state (Kalman maths); clamp to 0 at output only
+    x_[0] = pNew;
+    x_[1] = vNew;
     x_[2] = aNew;
 
     // F matrix = [1, dt, dt2]
     //            [0,  1,  dt]
     //            [0,  0,   1]
     // Compute P_new = F * P * F^T + Q * dt
+    //
+    // F * P:
     const double p00 = P_[0], p01 = P_[1], p02 = P_[2];
     const double p10 = P_[3], p11 = P_[4], p12 = P_[5];
     const double p20 = P_[6], p21 = P_[7], p22 = P_[8];
 
-    // FP = F * P
+    // FP = F * P  (row 0 = row0 + dt*row1 + dt2*row2)
     const double fp00 = p00 + dt * p10 + dt2 * p20;
     const double fp01 = p01 + dt * p11 + dt2 * p21;
     const double fp02 = p02 + dt * p12 + dt2 * p22;
 
+    // FP row 1 = row1 + dt*row2
     const double fp10 = p10 + dt * p20;
     const double fp11 = p11 + dt * p21;
     const double fp12 = p12 + dt * p22;
 
+    // FP row 2 = row2 (identity)
     const double fp20 = p20;
     const double fp21 = p21;
     const double fp22 = p22;
 
-    // (FP) * F^T
+    // (F*P)*F^T  — F^T col 0 = [1,0,0]^T, col 1 = [dt,1,0]^T, col 2 = [dt2,dt,1]^T
+    // P_new[i][j] = sum_k FP[i][k] * F[j][k]
     P_[0] = fp00 + dt * fp01 + dt2 * fp02 + config_.processNoisePos * dt;
-    P_[1] = fp01 + dt * fp02;
+    P_[1] = fp01 + dt  * fp02;
     P_[2] = fp02;
 
     P_[3] = fp10 + dt * fp11 + dt2 * fp12;
@@ -144,9 +150,13 @@ bool StateEstimator::updateOdometry(const OdometerMeasurement& measurement) noex
 
     P_[4] = std::max(1e-6, (1.0 - kVel1) * P_[4]);
 
-    // Ensure state non-negativity for position and velocity
+    // Ensure physical bounds: position >= 0 (trains don't travel backwards past origin)
+    // Velocity is clamped only if train is physically at rest
     x_[0] = std::max(0.0, x_[0]);
-    x_[1] = std::max(0.0, x_[1]);
+    if (x_[1] < 0.0 && measurement.rawVelocity <= 0.0)
+    {
+        x_[1] = 0.0;
+    }
 
     return true;
 }
