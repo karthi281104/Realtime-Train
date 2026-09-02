@@ -9,7 +9,7 @@ namespace {
 
 void requireFinite(const double value, const char* const name) {
   if (!std::isfinite(value)) {
-    throw std::invalid_argument(std::string{name} + " must be finite");
+    throw std::invalid_argument(std::string(name) + " must be finite");
   }
 }
 
