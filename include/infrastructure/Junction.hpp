@@ -2,19 +2,17 @@
 
 #include "common/Types.hpp"
 
-namespace tcas::infrastructure
-{
+namespace tcas::infrastructure {
 
-class Junction
-{
-public:
-    explicit Junction(JunctionId id);
+class Junction {
+ public:
+  explicit Junction(JunctionId id);
 
-    [[nodiscard]]
-    JunctionId id() const noexcept;
+  [[nodiscard]]
+  JunctionId id() const noexcept;
 
-private:
-    JunctionId id_;
+ private:
+  JunctionId id_;
 };
 
-} // namespace tcas::infrastructure
+}  // namespace tcas::infrastructure

@@ -1,8 +1,7 @@
 #pragma once
 
-namespace tcas::demo
-{
+namespace tcas::demo {
 
 void runFoundationDemo();
 
-} // namespace tcas::demo
+}  // namespace tcas::demo

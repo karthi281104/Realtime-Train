@@ -2,22 +2,15 @@
 
 #include "train/Train.hpp"
 
-namespace tcas::train
-{
+namespace tcas::train {
 
-class ExpressTrain final : public Train
-{
-public:
-    ExpressTrain(
-        TrainId id,
-        double mass,
-        double maximumSpeed,
-        double serviceBraking,
-        double emergencyBraking
-    );
+class ExpressTrain final : public Train {
+ public:
+  ExpressTrain(TrainId id, double mass, double maximumSpeed,
+               double serviceBraking, double emergencyBraking);
 
-    [[nodiscard]]
-    TrainType type() const noexcept override;
+  [[nodiscard]]
+  TrainType type() const noexcept override;
 };
 
-} // namespace tcas::train
+}  // namespace tcas::train

@@ -1,29 +1,24 @@
 #pragma once
 
-#include "common/Types.hpp"
-
 #include <string>
 
-namespace tcas::infrastructure
-{
+#include "common/Types.hpp"
 
-class Station
-{
-public:
-    Station(
-        NodeId nodeId,
-        std::string name
-    );
+namespace tcas::infrastructure {
 
-    [[nodiscard]]
-    NodeId nodeId() const noexcept;
+class Station {
+ public:
+  Station(NodeId nodeId, std::string name);
 
-    [[nodiscard]]
-    const std::string& name() const noexcept;
+  [[nodiscard]]
+  NodeId nodeId() const noexcept;
 
-private:
-    NodeId nodeId_;
-    std::string name_;
+  [[nodiscard]]
+  const std::string& name() const noexcept;
+
+ private:
+  NodeId nodeId_;
+  std::string name_;
 };
 
-} // namespace tcas::infrastructure
+}  // namespace tcas::infrastructure

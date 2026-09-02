@@ -2,8 +2,7 @@
 
 #include <cstdint>
 
-namespace tcas
-{
+namespace tcas {
 
 // ============================================================
 // Infrastructure identifiers
@@ -35,24 +34,12 @@ using SimTimeTick = std::uint64_t;
 // Train classification
 // ============================================================
 
-enum class TrainType
-{
-    Express,
-    Passenger,
-    Freight
-};
+enum class TrainType { Express, Passenger, Freight };
 
 // ============================================================
 // Train operational state
 // ============================================================
 
-enum class TrainState
-{
-    Idle,
-    Running,
-    Braking,
-    Stopped,
-    EmergencyBrake
-};
+enum class TrainState { Idle, Running, Braking, Stopped, EmergencyBrake };
 
-} // namespace tcas
+}  // namespace tcas

@@ -1,42 +1,37 @@
 #pragma once
 
-#include "train/Train.hpp"
-
 #include <cstddef>
 #include <memory>
 #include <unordered_map>
 
-namespace tcas::train
-{
+#include "train/Train.hpp"
 
-class TrainManager
-{
-public:
-    TrainManager() = default;
+namespace tcas::train {
 
-    bool addTrain(std::unique_ptr<Train> train);
+class TrainManager {
+ public:
+  TrainManager() = default;
 
-    bool removeTrain(TrainId id);
+  bool addTrain(std::unique_ptr<Train> train);
 
-    [[nodiscard]]
-    Train* getTrain(TrainId id) noexcept;
+  bool removeTrain(TrainId id);
 
-    [[nodiscard]]
-    const Train* getTrain(TrainId id) const noexcept;
+  [[nodiscard]]
+  Train* getTrain(TrainId id) noexcept;
 
-    [[nodiscard]]
-    bool contains(TrainId id) const noexcept;
+  [[nodiscard]]
+  const Train* getTrain(TrainId id) const noexcept;
 
-    [[nodiscard]]
-    std::size_t trainCount() const noexcept;
+  [[nodiscard]]
+  bool contains(TrainId id) const noexcept;
 
-    void clear() noexcept;
+  [[nodiscard]]
+  std::size_t trainCount() const noexcept;
 
-private:
-    std::unordered_map<
-        TrainId,
-        std::unique_ptr<Train>
-    > trains_;
+  void clear() noexcept;
+
+ private:
+  std::unordered_map<TrainId, std::unique_ptr<Train> > trains_;
 };
 
-} // namespace tcas::train
+}  // namespace tcas::train

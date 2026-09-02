@@ -1,11 +1,10 @@
 ﻿#pragma once
 
-#include "common/Types.hpp"
-
 #include <cstdint>
 
-namespace tcas::simulation
-{
+#include "common/Types.hpp"
+
+namespace tcas::simulation {
 
 // Periodic subsystem fire trigger for the simulation clock.
 //
@@ -26,30 +25,26 @@ namespace tcas::simulation
 //
 // Thread safety: SimulationTimer is stateless and immutable after
 // construction — it is safe to query from multiple threads.
-class SimulationTimer
-{
-public:
-    // Construct a timer that fires every `periodMs` milliseconds,
-    // given a physics tick of `physicsPeriodMs` milliseconds.
-    //
-    // Throws std::invalid_argument when either period is zero or when
-    // periodMs is smaller than physicsPeriodMs.
-    SimulationTimer(
-        std::uint32_t periodMs,
-        std::uint32_t physicsPeriodMs
-    );
+class SimulationTimer {
+ public:
+  // Construct a timer that fires every `periodMs` milliseconds,
+  // given a physics tick of `physicsPeriodMs` milliseconds.
+  //
+  // Throws std::invalid_argument when either period is zero or when
+  // periodMs is smaller than physicsPeriodMs.
+  SimulationTimer(std::uint32_t periodMs, std::uint32_t physicsPeriodMs);
 
-    // Returns true when the given tick count is a multiple of the
-    // computed interval (in ticks). Always returns true for tick 0.
-    [[nodiscard]]
-    bool shouldFire(SimTimeTick tickCount) const noexcept;
+  // Returns true when the given tick count is a multiple of the
+  // computed interval (in ticks). Always returns true for tick 0.
+  [[nodiscard]]
+  bool shouldFire(SimTimeTick tickCount) const noexcept;
 
-    // The computed firing interval in ticks.
-    [[nodiscard]]
-    SimTimeTick intervalTicks() const noexcept;
+  // The computed firing interval in ticks.
+  [[nodiscard]]
+  SimTimeTick intervalTicks() const noexcept;
 
-private:
-    SimTimeTick intervalTicks_;
+ private:
+  SimTimeTick intervalTicks_;
 };
 
-} // namespace tcas::simulation
+}  // namespace tcas::simulation

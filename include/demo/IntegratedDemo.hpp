@@ -1,7 +1,6 @@
 ﻿#pragma once
 
-namespace tcas::demo
-{
+namespace tcas::demo {
 
 // Runs the comprehensive end-to-end integrated demo combining:
 // - Module 1: Railway Infrastructure & Topology Graph
@@ -11,4 +10,4 @@ namespace tcas::demo
 // - Module 5: Dijkstra Route Navigation & Path Execution
 void runIntegratedDemo();
 
-} // namespace tcas::demo
+}  // namespace tcas::demo

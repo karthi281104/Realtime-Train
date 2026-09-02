@@ -2,26 +2,13 @@
 
 #include <utility>
 
-namespace tcas::infrastructure
-{
+namespace tcas::infrastructure {
 
-Station::Station(
-    NodeId nodeId,
-    std::string name
-)
-    : nodeId_(nodeId),
-      name_(std::move(name))
-{
-}
+Station::Station(NodeId nodeId, std::string name)
+    : nodeId_(nodeId), name_(std::move(name)) {}
 
-NodeId Station::nodeId() const noexcept
-{
-    return nodeId_;
-}
+NodeId Station::nodeId() const noexcept { return nodeId_; }
 
-const std::string& Station::name() const noexcept
-{
-    return name_;
-}
+const std::string& Station::name() const noexcept { return name_; }
 
-} // namespace tcas::infrastructure
+}  // namespace tcas::infrastructure
