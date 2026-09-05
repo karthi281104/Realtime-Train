@@ -76,6 +76,9 @@ add_library(tcas_core
     # Module 7 - Communication Simulation
     src/communication/Message.cpp
     src/communication/CommunicationChannel.cpp
+
+    # Module 8 - Predictive Position Engine
+    src/prediction/PredictionEngine.cpp
 )
 
 target_include_directories(tcas_core
@@ -165,6 +168,9 @@ add_executable(tcas_tests
     # Module 7 Tests - Communication Simulation
     tests/communication/MessageTest.cpp
     tests/communication/CommunicationChannelTest.cpp
+
+    # Module 8 Tests - Predictive Position Engine
+    tests/prediction/PredictionEngineTest.cpp
 )
 
 target_include_directories(tcas_tests
