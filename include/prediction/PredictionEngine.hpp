@@ -77,10 +77,23 @@ private:
     );
 
     [[nodiscard]]
+    static void validateRouteConnectivity(
+        const infrastructure::RailwayNetwork& network,
+        const navigation::RouteResult& route
+    );
+
+    [[nodiscard]]
     static DistanceMeters propagateUncertainty(
         DistanceMeters initialUncertainty,
         TimeSeconds elapsed
     );
+
+    [[nodiscard]]
+    static TimeSeconds calculateTimeToBoundary(
+        DistanceMeters distanceToBoundary,
+        SpeedMetersPerSecond velocity,
+        AccelerationMetersPerSecondSquared acceleration
+    ) noexcept;
 
     [[nodiscard]]
     static bool isFiniteNonNegative(double value) noexcept;

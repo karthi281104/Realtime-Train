@@ -47,6 +47,89 @@ bool PredictionEngine::isFiniteNonNegative(double value) noexcept
     return std::isfinite(value) && value >= 0.0;
 }
 
+void PredictionEngine::validateRouteConnectivity(
+    const infrastructure::RailwayNetwork& network,
+    const navigation::RouteResult& route
+)
+{
+    for (std::size_t i = 0; i + 1 < route.tracks.size(); ++i)
+    {
+        const auto* currentTrack = network.getTrack(route.tracks[i]);
+        const auto* nextTrack = network.getTrack(route.tracks[i + 1]);
+
+        if (currentTrack == nullptr || nextTrack == nullptr)
+        {
+            throw std::invalid_argument(
+                "Route contains a track that does not exist in railway network"
+            );
+        }
+
+        if (currentTrack->destination() != nextTrack->source())
+        {
+            throw std::invalid_argument(
+                "Route contains disconnected tracks"
+            );
+        }
+    }
+}
+
+TimeSeconds PredictionEngine::calculateTimeToBoundary(
+    DistanceMeters distanceToBoundary,
+    SpeedMetersPerSecond velocity,
+    AccelerationMetersPerSecondSquared acceleration
+) noexcept
+{
+    if (distanceToBoundary <= 0.0)
+    {
+        return 0.0;
+    }
+
+    if (velocity <= 0.0 && acceleration <= 0.0)
+    {
+        return std::numeric_limits<double>::infinity();
+    }
+
+    if (std::abs(acceleration) < 1e-9)
+    {
+        return velocity > 0.0
+                   ? distanceToBoundary / velocity
+                   : std::numeric_limits<double>::infinity();
+    }
+
+    const double discriminant =
+        velocity * velocity + 2.0 * acceleration * distanceToBoundary;
+
+    if (discriminant <= 0.0)
+    {
+        return velocity > 0.0
+                   ? distanceToBoundary / velocity
+                   : std::numeric_limits<double>::infinity();
+    }
+
+    const double sqrtDisc = std::sqrt(discriminant);
+    const double root1 = (-velocity + sqrtDisc) / acceleration;
+    const double root2 = (-velocity - sqrtDisc) / acceleration;
+
+    double candidate = std::numeric_limits<double>::infinity();
+    if (root1 > 0.0)
+    {
+        candidate = std::min(candidate, root1);
+    }
+    if (root2 > 0.0)
+    {
+        candidate = std::min(candidate, root2);
+    }
+
+    if (std::isfinite(candidate))
+    {
+        return candidate;
+    }
+
+    return velocity > 0.0
+               ? distanceToBoundary / velocity
+               : std::numeric_limits<double>::infinity();
+}
+
 std::vector<FutureState> PredictionEngine::predictStandardHorizon(
     const train::Train& train,
     const infrastructure::RailwayNetwork& network,
@@ -99,6 +182,8 @@ std::vector<FutureState> PredictionEngine::predict(
         );
     }
 
+    validateRouteConnectivity(network, route);
+
     const std::size_t currentRouteIndex =
         findCurrentTrackIndex(route, currentTrackId);
 
@@ -150,11 +235,30 @@ std::vector<FutureState> PredictionEngine::predict(
         }
     }
 
-    std::vector<FutureState> predictions;
-    predictions.reserve(horizons.size());
+    // Sort horizons chronologically for predictable downstream processing
+    std::vector<TimeSeconds> sortedHorizons = horizons;
+    std::sort(sortedHorizons.begin(), sortedHorizons.end());
 
-    for (const TimeSeconds horizon : horizons)
+    std::vector<FutureState> predictions;
+    predictions.reserve(sortedHorizons.size());
+
+    for (const TimeSeconds horizon : sortedHorizons)
     {
+        if (horizon == 0.0)
+        {
+            predictions.push_back(
+                FutureState{
+                    0.0,
+                    currentTrackId,
+                    train.position(),
+                    train.velocity(),
+                    train.acceleration(),
+                    initialUncertainty
+                }
+            );
+            continue;
+        }
+
         const PredictionPoint point = predictAtTime(
             train,
             network,
@@ -214,9 +318,8 @@ PredictionEngine::PredictionPoint PredictionEngine::predictAtTime(
 
     while (remainingTime > 0.0)
     {
-        track = network.getTrack(
-            route.tracks[routeIndex]
-        );
+        currentTrackId = route.tracks[routeIndex];
+        track = network.getTrack(currentTrackId);
 
         if (track == nullptr)
         {
@@ -225,42 +328,89 @@ PredictionEngine::PredictionPoint PredictionEngine::predictAtTime(
             );
         }
 
+        // Handle explicit track boundary transition edge case
+        if (position >= track->length())
+        {
+            if (routeIndex + 1U >= route.tracks.size())
+            {
+                velocity = 0.0;
+                acceleration = 0.0;
+                position = track->length();
+                break;
+            }
+
+            ++routeIndex;
+            position = 0.0;
+            continue;
+        }
+
         const DistanceMeters remainingDistance =
             std::max(0.0, track->length() - position);
 
-        // No physical movement is possible when the train is stopped.
+        // Stopped condition check
         if (velocity <= 0.0 && acceleration <= 0.0)
         {
             break;
         }
 
-        // Respect the speed limit of the current track.
-        velocity = std::min(
-            velocity,
-            track->speedLimit()
-        );
+        // Apply track speed limit
+        const SpeedMetersPerSecond trackSpeedLimit =
+            std::min(train.maximumSpeed(), track->speedLimit());
+        velocity = std::min(velocity, trackSpeedLimit);
 
-        // Positive gradient is uphill.
-        // Negative gradient is downhill.
-        //
-        // For prediction, use the train's acceleration while also
-        // applying the gradient effect to the longitudinal motion.
-        const double gradientAcceleration =
-            -physics::KinematicsEngine::kGravity *
-            track->gradient();
+        // Check next track speed limit for required service braking before boundary
+        double targetNextLimit = trackSpeedLimit;
+        if (routeIndex + 1U < route.tracks.size())
+        {
+            const auto* nextTrack = network.getTrack(route.tracks[routeIndex + 1U]);
+            if (nextTrack != nullptr)
+            {
+                targetNextLimit = std::min(train.maximumSpeed(), nextTrack->speedLimit());
+            }
+        }
 
-        const AccelerationMetersPerSecondSquared effectiveAcceleration =
-            acceleration + gradientAcceleration;
+        const double effectiveServiceDecel =
+            physics::KinematicsEngine::effectiveDeceleration(
+                train.serviceBraking(),
+                track->gradient()
+            );
+
+        AccelerationMetersPerSecondSquared effectiveAcceleration = acceleration;
+
+        // If approaching a lower speed limit track, check if braking is required
+        if (velocity > targetNextLimit && effectiveServiceDecel > 0.0)
+        {
+            const double requiredBrakingDist =
+                (velocity * velocity - targetNextLimit * targetNextLimit) /
+                (2.0 * effectiveServiceDecel);
+
+            if (remainingDistance <= requiredBrakingDist)
+            {
+                // Start service braking to meet the lower speed limit at the boundary
+                effectiveAcceleration = -effectiveServiceDecel;
+            }
+            else
+            {
+                // Apply gradient effect to longitudinal motion
+                const double gradientAcceleration =
+                    -physics::KinematicsEngine::kGravity * track->gradient();
+                effectiveAcceleration = acceleration + gradientAcceleration;
+            }
+        }
+        else
+        {
+            // Apply gradient effect to longitudinal motion
+            const double gradientAcceleration =
+                -physics::KinematicsEngine::kGravity * track->gradient();
+            effectiveAcceleration = acceleration + gradientAcceleration;
+        }
 
         const SpeedMetersPerSecond predictedVelocity =
             physics::KinematicsEngine::updateVelocity(
                 velocity,
                 effectiveAcceleration,
                 remainingTime,
-                std::min(
-                    train.maximumSpeed(),
-                    track->speedLimit()
-                )
+                trackSpeedLimit
             );
 
         const DistanceMeters predictedPosition =
@@ -271,19 +421,11 @@ PredictionEngine::PredictionPoint PredictionEngine::predictAtTime(
                 remainingTime
             );
 
-        // The predicted position remains inside the current track.
+        // Predicted position remains within current track
         if (predictedPosition < track->length())
         {
-            position = std::max(
-                0.0,
-                predictedPosition
-            );
-
-            velocity = std::min(
-                predictedVelocity,
-                track->speedLimit()
-            );
-
+            position = std::max(0.0, predictedPosition);
+            velocity = std::min(predictedVelocity, trackSpeedLimit);
             acceleration = effectiveAcceleration;
 
             elapsedTime += remainingTime;
@@ -291,93 +433,30 @@ PredictionEngine::PredictionPoint PredictionEngine::predictAtTime(
             break;
         }
 
-        // The train reaches the end of this track during the
-        // remaining prediction interval.
-        const DistanceMeters distanceToBoundary =
-            remainingDistance;
-
-        TimeSeconds timeToBoundary = 0.0;
-
-        if (velocity > 0.0)
-        {
-            if (std::abs(effectiveAcceleration) < 1e-9)
-            {
-                timeToBoundary =
-                    distanceToBoundary / velocity;
-            }
-            else
-            {
-                const double discriminant =
-                    velocity * velocity +
-                    2.0 *
-                    effectiveAcceleration *
-                    distanceToBoundary;
-
-                if (discriminant <= 0.0)
-                {
-                    timeToBoundary =
-                        distanceToBoundary / velocity;
-                }
-                else
-                {
-                    const double sqrtDiscriminant =
-                        std::sqrt(discriminant);
-
-                    const double root1 =
-                        (-velocity + sqrtDiscriminant) /
-                        effectiveAcceleration;
-
-                    const double root2 =
-                        (-velocity - sqrtDiscriminant) /
-                        effectiveAcceleration;
-
-                    const double candidate1 =
-                        root1 > 0.0
-                            ? root1
-                            : std::numeric_limits<double>::infinity();
-
-                    const double candidate2 =
-                        root2 > 0.0
-                            ? root2
-                            : std::numeric_limits<double>::infinity();
-
-                    timeToBoundary =
-                        std::min(candidate1, candidate2);
-
-                    if (!std::isfinite(timeToBoundary))
-                    {
-                        timeToBoundary =
-                            distanceToBoundary / velocity;
-                    }
-                }
-            }
-        }
-
-        timeToBoundary = std::clamp(
-            timeToBoundary,
-            0.0,
-            remainingTime
+        // Reaches end of track during remaining time interval
+        TimeSeconds timeToBoundary = calculateTimeToBoundary(
+            remainingDistance,
+            velocity,
+            effectiveAcceleration
         );
+
+        timeToBoundary = std::clamp(timeToBoundary, 0.0, remainingTime);
 
         position = track->length();
 
-        velocity =
-            physics::KinematicsEngine::updateVelocity(
-                velocity,
-                effectiveAcceleration,
-                timeToBoundary,
-                std::min(
-                    train.maximumSpeed(),
-                    track->speedLimit()
-                )
-            );
+        velocity = physics::KinematicsEngine::updateVelocity(
+            velocity,
+            effectiveAcceleration,
+            timeToBoundary,
+            trackSpeedLimit
+        );
 
         acceleration = effectiveAcceleration;
 
         elapsedTime += timeToBoundary;
         remainingTime -= timeToBoundary;
 
-        // Route finished.
+        // Check if route completed
         if (routeIndex + 1U >= route.tracks.size())
         {
             velocity = 0.0;
@@ -386,34 +465,19 @@ PredictionEngine::PredictionPoint PredictionEngine::predictAtTime(
             break;
         }
 
-        // Move to the next route track.
+        // Move to next track
         ++routeIndex;
-
-        currentTrackId =
-            route.tracks[routeIndex];
-
+        currentTrackId = route.tracks[routeIndex];
         track = network.getTrack(currentTrackId);
 
         if (track == nullptr)
         {
-            throw std::invalid_argument(
-                "Next route track does not exist"
-            );
+            throw std::invalid_argument("Next route track does not exist");
         }
 
         position = 0.0;
+        velocity = std::min(velocity, std::min(train.maximumSpeed(), track->speedLimit()));
 
-        // New track speed limit applies immediately.
-        velocity = std::min(
-            velocity,
-            std::min(
-                train.maximumSpeed(),
-                track->speedLimit()
-            )
-        );
-
-        // If there is no time remaining, the state is exactly
-        // at the beginning of the next track.
         if (remainingTime <= 0.0)
         {
             break;
@@ -440,15 +504,13 @@ DistanceMeters PredictionEngine::propagateUncertainty(
     TimeSeconds elapsed
 )
 {
-    // Simple deterministic uncertainty growth model for the PoC.
+    // Deterministic uncertainty growth prediction model for the PoC.
     //
-    // sigma_position(t) =
-    //     sigma_initial + growth_rate * t
+    // sigma_position(t) = sigma_initial + growth_rate * t
     //
     // Module 6 remains the authoritative state estimator.
-    // Module 8 propagates the uncertainty available at prediction start.
-    return initialUncertainty +
-           kUncertaintyGrowthRate * elapsed;
+    // Module 8 propagates uncertainty over future prediction horizons.
+    return initialUncertainty + kUncertaintyGrowthRate * elapsed;
 }
 
 } // namespace tcas::prediction
