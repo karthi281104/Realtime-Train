@@ -128,27 +128,84 @@ bool StateEstimator::updateOdometry(const OdometerMeasurement& measurement) noex
     const double kPos1 = P_[3] / sPos;
     const double kPos2 = P_[6] / sPos;
 
-    // Update with position
+    // Update state with position
     x_[0] += kPos0 * residualPos;
     x_[1] += kPos1 * residualPos;
     x_[2] += kPos2 * residualPos;
 
-    // Covariance update (Joseph form or standard (I - K*H)*P)
-    P_[0] = std::max(1e-6, (1.0 - kPos0) * P_[0]);
-    P_[4] = std::max(1e-6, P_[4] - kPos1 * P_[1]);
-    P_[8] = std::max(1e-6, P_[8] - kPos2 * P_[2]);
+    // Full 3x3 covariance update for position measurement: P_new = (I - K_pos * H_pos) * P
+    {
+        const double p0 = P_[0], p1 = P_[1], p2 = P_[2];
+        const double p3 = P_[3], p4 = P_[4], p5 = P_[5];
+        const double p6 = P_[6], p7 = P_[7], p8 = P_[8];
+
+        P_[0] = (1.0 - kPos0) * p0;
+        P_[1] = (1.0 - kPos0) * p1;
+        P_[2] = (1.0 - kPos0) * p2;
+
+        P_[3] = p3 - kPos1 * p0;
+        P_[4] = p4 - kPos1 * p1;
+        P_[5] = p5 - kPos1 * p2;
+
+        P_[6] = p6 - kPos2 * p0;
+        P_[7] = p7 - kPos2 * p1;
+        P_[8] = p8 - kPos2 * p2;
+
+        // Symmetrize off-diagonals
+        const double p13 = 0.5 * (P_[1] + P_[3]);
+        const double p26 = 0.5 * (P_[2] + P_[6]);
+        const double p57 = 0.5 * (P_[5] + P_[7]);
+        P_[1] = P_[3] = p13;
+        P_[2] = P_[6] = p26;
+        P_[5] = P_[7] = p57;
+
+        P_[0] = std::max(1e-6, P_[0]);
+        P_[4] = std::max(1e-6, P_[4]);
+        P_[8] = std::max(1e-6, P_[8]);
+    }
 
     // Kalman gains for velocity measurement
-    const double kVel0 = P_[1] / sVel;
-    const double kVel1 = P_[4] / sVel;
-    const double kVel2 = P_[7] / sVel;
+    const double sVelNew = P_[4] + config_.measurementNoiseVel;
+    if (sVelNew > 0.0)
+    {
+        const double kVel0 = P_[1] / sVelNew;
+        const double kVel1 = P_[4] / sVelNew;
+        const double kVel2 = P_[7] / sVelNew;
 
-    const double updatedResidualVel = measurement.rawVelocity - x_[1];
-    x_[0] += kVel0 * updatedResidualVel;
-    x_[1] += kVel1 * updatedResidualVel;
-    x_[2] += kVel2 * updatedResidualVel;
+        const double updatedResidualVel = measurement.rawVelocity - x_[1];
+        x_[0] += kVel0 * updatedResidualVel;
+        x_[1] += kVel1 * updatedResidualVel;
+        x_[2] += kVel2 * updatedResidualVel;
 
-    P_[4] = std::max(1e-6, (1.0 - kVel1) * P_[4]);
+        // Full 3x3 covariance update for velocity measurement: P_new = (I - K_vel * H_vel) * P
+        const double p0 = P_[0], p1 = P_[1], p2 = P_[2];
+        const double p3 = P_[3], p4 = P_[4], p5 = P_[5];
+        const double p6 = P_[6], p7 = P_[7], p8 = P_[8];
+
+        P_[0] = p0 - kVel0 * p3;
+        P_[1] = p1 - kVel0 * p4;
+        P_[2] = p2 - kVel0 * p5;
+
+        P_[3] = (1.0 - kVel1) * p3;
+        P_[4] = (1.0 - kVel1) * p4;
+        P_[5] = (1.0 - kVel1) * p5;
+
+        P_[6] = p6 - kVel2 * p3;
+        P_[7] = p7 - kVel2 * p4;
+        P_[8] = p8 - kVel2 * p5;
+
+        // Symmetrize off-diagonals
+        const double p13 = 0.5 * (P_[1] + P_[3]);
+        const double p26 = 0.5 * (P_[2] + P_[6]);
+        const double p57 = 0.5 * (P_[5] + P_[7]);
+        P_[1] = P_[3] = p13;
+        P_[2] = P_[6] = p26;
+        P_[5] = P_[7] = p57;
+
+        P_[0] = std::max(1e-6, P_[0]);
+        P_[4] = std::max(1e-6, P_[4]);
+        P_[8] = std::max(1e-6, P_[8]);
+    }
 
     // Ensure physical bounds: position >= 0 (trains don't travel backwards past origin)
     // Velocity is clamped only if train is physically at rest
@@ -180,9 +237,34 @@ bool StateEstimator::updateBalise(const BaliseTransponder& balise) noexcept
     x_[1] += k1 * residual;
     x_[2] += k2 * residual;
 
-    // Drastically lowers position uncertainty
-    P_[0] = std::max(1e-6, (1.0 - k0) * P_[0]);
-    P_[4] = std::max(1e-6, P_[4] - k1 * P_[1]);
+    // Full 3x3 covariance update for balise position fix
+    const double p0 = P_[0], p1 = P_[1], p2 = P_[2];
+    const double p3 = P_[3], p4 = P_[4], p5 = P_[5];
+    const double p6 = P_[6], p7 = P_[7], p8 = P_[8];
+
+    P_[0] = (1.0 - k0) * p0;
+    P_[1] = (1.0 - k0) * p1;
+    P_[2] = (1.0 - k0) * p2;
+
+    P_[3] = p3 - k1 * p0;
+    P_[4] = p4 - k1 * p1;
+    P_[5] = p5 - k1 * p2;
+
+    P_[6] = p6 - k2 * p0;
+    P_[7] = p7 - k2 * p1;
+    P_[8] = p8 - k2 * p2;
+
+    // Symmetrize off-diagonals
+    const double p13 = 0.5 * (P_[1] + P_[3]);
+    const double p26 = 0.5 * (P_[2] + P_[6]);
+    const double p57 = 0.5 * (P_[5] + P_[7]);
+    P_[1] = P_[3] = p13;
+    P_[2] = P_[6] = p26;
+    P_[5] = P_[7] = p57;
+
+    P_[0] = std::max(1e-6, P_[0]);
+    P_[4] = std::max(1e-6, P_[4]);
+    P_[8] = std::max(1e-6, P_[8]);
 
     x_[0] = std::max(0.0, x_[0]);
     x_[1] = std::max(0.0, x_[1]);

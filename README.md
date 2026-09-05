@@ -1,7 +1,7 @@
 # Train Collision Avoidance System (TCAS)
 
 A C++23 real-time train collision-avoidance system, developed as twelve
-incremental modules. Modules 1–5 are implemented and covered by unit and
+incremental modules. Modules 1–7 are implemented and covered by unit and
 cross-module integration tests.
 
 ## Implemented modules
@@ -11,8 +11,10 @@ cross-module integration tests.
 3. Simulation & Clock — deterministic simulation time and periodic timers
 4. Physics & Braking — kinematics and gradient-aware stopping distances
 5. Route & Navigation — Dijkstra shortest-path routing over the rail network
+6. Sensor & State Estimation — sensor models and 1D Kalman filter state estimation
+7. Wireless Communication — V2V / V2I communication channel simulator with latency and packet loss
 
-Module 6 (Sensor & State Estimation) is the next planned module.
+Module 8 (Collision Detection & Conflict Detection) is the next planned module.
 
 ## Layout
 

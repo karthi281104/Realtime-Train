@@ -31,7 +31,15 @@ bool CommunicationChannel::sendMessage(
 {
     ++totalSent_;
 
-    // 1. Range verification check
+    // 1. Recipient registration check for unicast messages
+    if (message.header.recipientId != kBroadcastRecipientId &&
+        !registeredEntities_.contains(message.header.recipientId))
+    {
+        ++totalDropped_;
+        return false;
+    }
+
+    // 2. Range verification check
     const double distance = std::abs(senderPosition - recipientPosition);
     if (config_.maxRangeMeters > 0.0 && distance > config_.maxRangeMeters)
     {
@@ -39,7 +47,7 @@ bool CommunicationChannel::sendMessage(
         return false;
     }
 
-    // 2. Deterministic drop modulo check (if enabled)
+    // 3. Deterministic drop modulo check (if enabled)
     if (config_.deterministicDropModulo > 0 &&
         (totalSent_ % config_.deterministicDropModulo == 0))
     {
@@ -47,11 +55,20 @@ bool CommunicationChannel::sendMessage(
         return false;
     }
 
-    // 3. Probabilistic packet loss check
-    if (config_.packetLossRate >= 1.0)
+    // 4. Probabilistic packet loss check
+    if (config_.packetLossRate > 0.0)
     {
-        ++totalDropped_;
-        return false;
+        if (config_.packetLossRate >= 1.0)
+        {
+            ++totalDropped_;
+            return false;
+        }
+        std::uniform_real_distribution<double> dist(0.0, 1.0);
+        if (dist(rng_) < config_.packetLossRate)
+        {
+            ++totalDropped_;
+            return false;
+        }
     }
 
     // Schedule arrival tick

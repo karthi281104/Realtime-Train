@@ -130,7 +130,7 @@ TEST(StateEstimatorTest, BaliseUpdateClearsOutlierCountAndDegradedState)
 {
     StateEstimator estimator({}, 100.0, 20.0);
 
-    // Push 3 invalid measurements to trigger degradation
+    // Push invalid measurement to trigger degradation
     OdometerMeasurement invalid{
         .rawPosition = 0.0, .rawVelocity = 0.0, .rawAcceleration = 0.0,
         .timestamp = 1, .isValid = false

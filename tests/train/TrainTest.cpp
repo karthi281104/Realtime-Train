@@ -1,6 +1,8 @@
 #include "train/Train.hpp"
 
+#include <cmath>
 #include <gtest/gtest.h>
+#include <limits>
 
 using namespace tcas;
 using namespace tcas::train;
@@ -204,4 +206,19 @@ TEST(TrainTest, UpdatesTrainState)
     train.setState(TrainState::Running);
 
     EXPECT_EQ(train.state(), TrainState::Running);
+}
+
+TEST(TrainTest, RejectsNaNInputs)
+{
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+
+    EXPECT_THROW(TestTrain(1, nan, 40.0, 0.8, 1.2), std::invalid_argument);
+    EXPECT_THROW(TestTrain(1, 50000.0, nan, 0.8, 1.2), std::invalid_argument);
+    EXPECT_THROW(TestTrain(1, 50000.0, 40.0, nan, 1.2), std::invalid_argument);
+    EXPECT_THROW(TestTrain(1, 50000.0, 40.0, 0.8, nan), std::invalid_argument);
+
+    TestTrain train(1, 50000.0, 40.0, 0.8, 1.2);
+    EXPECT_THROW(train.setPosition(nan), std::invalid_argument);
+    EXPECT_THROW(train.setVelocity(nan), std::invalid_argument);
+    EXPECT_THROW(train.setAcceleration(nan), std::invalid_argument);
 }

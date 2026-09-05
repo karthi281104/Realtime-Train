@@ -42,8 +42,8 @@ double KinematicsEngine::updatePosition(
         velocity = 0.0;
     }
 
-    // No motion.
-    if (velocity == 0.0)
+    // No motion if zero velocity and no positive acceleration.
+    if (velocity == 0.0 && acceleration <= 0.0)
     {
         return position;
     }
