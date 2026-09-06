@@ -7,6 +7,7 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
 #include <stdexcept>
 
 namespace tcas::conflict
@@ -60,6 +61,25 @@ TEST(ConflictDetectorTest, DetectsRearEndConflict)
     EXPECT_EQ(conflicts[0].type, ConflictType::RearEnd);
     EXPECT_EQ(conflicts[0].trackId, 101U);
     EXPECT_LE(conflicts[0].minimumSeparation, 10.0);
+}
+
+TEST(ConflictDetectorTest, DetectsConflictBetweenPredictionSamples)
+{
+    const auto network = makeNetwork();
+    ConflictDetector detector({10.0, 5.0, 2.0});
+
+    // At t=0 the trains are 100 m apart and at t=10 they are also 100 m
+    // apart. They meet at t=5, so endpoint-only checking would miss this.
+    const auto conflicts = detector.detect(
+        1,
+        {state(0.0, 101, 100.0, 10.0), state(10.0, 101, 200.0, 10.0)},
+        2,
+        {state(0.0, 101, 200.0, -10.0), state(10.0, 101, 100.0, -10.0)},
+        network);
+
+    ASSERT_EQ(conflicts.size(), 1U);
+    EXPECT_EQ(conflicts[0].type, ConflictType::HeadOn);
+    EXPECT_NEAR(conflicts[0].minimumSeparation, 0.0, 1e-9);
 }
 
 TEST(ConflictDetectorTest, DetectsHeadOnConflictWhenVelocityIsOpposite)
@@ -157,6 +177,22 @@ TEST(ConflictDetectorTest, RejectsSameTrain)
         std::invalid_argument);
 }
 
+TEST(ConflictDetectorTest, RejectsNonFiniteTrajectory)
+{
+    const auto network = makeNetwork();
+    ConflictDetector detector;
+
+    EXPECT_THROW(
+        detector.detect(
+            1,
+            {state(0.0, 101, 0.0, 10.0),
+             state(10.0, 101, std::numeric_limits<double>::quiet_NaN(), 10.0)},
+            2,
+            {state(0.0, 101, 100.0, 10.0), state(10.0, 101, 200.0, 10.0)},
+            network),
+        std::invalid_argument);
+}
+
 TEST(ResourceReservationManagerTest, GrantsNonOverlappingReservations)
 {
     ResourceReservationManager manager;
@@ -184,6 +220,14 @@ TEST(ResourceReservationManagerTest, ReleasesReservation)
     ASSERT_TRUE(manager.request(1, zone, 10.0, 20.0));
     EXPECT_TRUE(manager.release(1, zone));
     EXPECT_TRUE(manager.request(2, zone, 10.0, 20.0));
+}
+
+TEST(ResourceReservationManagerTest, RejectsInvalidInterval)
+{
+    ResourceReservationManager manager;
+    const ConflictZone zone{ConflictZoneType::Junction, 2, 0};
+
+    EXPECT_THROW(manager.request(1, zone, 20.0, 10.0), std::invalid_argument);
 }
 
 } // namespace tcas::conflict
