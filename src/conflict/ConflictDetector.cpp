@@ -45,21 +45,20 @@ bool validTrajectory(const std::vector<prediction::FutureState>& trajectory)
         return false;
     }
 
-    for (std::size_t index = 1; index < trajectory.size(); ++index)
+    for (std::size_t index = 0; index < trajectory.size(); ++index)
     {
-        if (!std::isfinite(trajectory[index].timestamp) ||
-            !std::isfinite(trajectory[index].position) ||
-            !std::isfinite(trajectory[index].velocity) ||
-            !std::isfinite(trajectory[index].uncertainty) ||
-            trajectory[index].timestamp < trajectory[index - 1].timestamp)
+        const auto& state = trajectory[index];
+        if (!std::isfinite(state.timestamp) ||
+            !std::isfinite(state.position) ||
+            !std::isfinite(state.velocity) ||
+            !std::isfinite(state.uncertainty) ||
+            state.uncertainty < 0.0 ||
+            (index > 0 && state.timestamp < trajectory[index - 1].timestamp))
         {
             return false;
         }
     }
-    return std::isfinite(trajectory.front().timestamp) &&
-           std::isfinite(trajectory.front().position) &&
-           std::isfinite(trajectory.front().velocity) &&
-           std::isfinite(trajectory.front().uncertainty);
+    return true;
 }
 
 struct NodeEvent
@@ -136,6 +135,10 @@ std::vector<Conflict> ConflictDetector::detect(
 
     std::vector<Conflict> conflicts;
 
+    // Prediction samples are discrete, so every adjacent pair is treated as
+    // a continuous interval. For intervals on the same track, conflict time is
+    // solved analytically rather than sampled. This prevents a collision that
+    // occurs between 5/10/20/30/60-second prediction points from being missed.
     for (std::size_t i = 0; i + 1 < trajectoryA.size(); ++i)
     {
         for (std::size_t j = 0; j + 1 < trajectoryB.size(); ++j)
@@ -145,8 +148,6 @@ std::vector<Conflict> ConflictDetector::detect(
             const auto& b0 = trajectoryB[j];
             const auto& b1 = trajectoryB[j + 1];
 
-            // Only compare a common directed track during an interval. This
-            // avoids inventing conflicts between unrelated track IDs.
             if (a0.trackId != a1.trackId || a0.trackId != b0.trackId ||
                 b0.trackId != b1.trackId)
             {
@@ -235,8 +236,6 @@ ConflictType ConflictDetector::classifySameTrack(
     const prediction::FutureState& a,
     const prediction::FutureState& b) const noexcept
 {
-    // FutureState contains a signed velocity quantity. Opposite signs mean
-    // the trains are travelling in opposite directions on the same track.
     if (a.velocity * b.velocity < 0.0)
     {
         return ConflictType::HeadOn;
@@ -260,31 +259,126 @@ bool ConflictDetector::hasTemporalConflict(
         return false;
     }
 
-    const TimeSeconds duration = end - start;
-    constexpr int kSteps = 20;
-    bool conflict = false;
-    minimumSeparation = std::numeric_limits<DistanceMeters>::infinity();
-
-    for (int step = 0; step <= kSteps; ++step)
+    const TimeSeconds interval = end - start;
+    const double aDuration = a1.timestamp - a0.timestamp;
+    const double bDuration = b1.timestamp - b0.timestamp;
+    if (aDuration <= 0.0 || bDuration <= 0.0)
     {
-        const TimeSeconds time =
-            start + duration * static_cast<double>(step) / static_cast<double>(kSteps);
-        const Sample a = interpolate(a0, a1, time);
-        const Sample b = interpolate(b0, b1, time);
-        const DistanceMeters separation = std::abs(a.position - b.position);
-        const DistanceMeters protectedDistance =
-            config_.minimumTrackSeparation + a.uncertainty + b.uncertainty;
+        return false;
+    }
 
-        minimumSeparation = std::min(minimumSeparation, separation);
-        if (separation <= protectedDistance)
+    const Sample aStart = interpolate(a0, a1, start);
+    const Sample aEnd = interpolate(a0, a1, end);
+    const Sample bStart = interpolate(b0, b1, start);
+    const Sample bEnd = interpolate(b0, b1, end);
+
+    const double relativeStart = aStart.position - bStart.position;
+    const double relativeSlope =
+        ((aEnd.position - aStart.position) - (bEnd.position - bStart.position)) /
+        std::max(interval, std::numeric_limits<double>::min());
+    const double marginStart =
+        config_.minimumTrackSeparation + aStart.uncertainty + bStart.uncertainty;
+    const double marginSlope =
+        ((aEnd.uncertainty - aStart.uncertainty) +
+         (bEnd.uncertainty - bStart.uncertainty)) /
+        std::max(interval, std::numeric_limits<double>::min());
+
+    // Solve d(t)^2 - m(t)^2 <= 0, where d is relative position and m is the
+    // protected separation including both prediction uncertainties.
+    const double qa = relativeSlope * relativeSlope - marginSlope * marginSlope;
+    const double qb = 2.0 * (relativeStart * relativeSlope - marginStart * marginSlope);
+    const double qc = relativeStart * relativeStart - marginStart * marginStart;
+
+    auto f = [&](double timeFromStart)
+    {
+        return (qa * timeFromStart + qb) * timeFromStart + qc;
+    };
+
+    std::vector<double> candidates{0.0, interval};
+    constexpr double kEpsilon = 1e-12;
+
+    if (std::abs(qa) > kEpsilon)
+    {
+        const double discriminant = qb * qb - 4.0 * qa * qc;
+        if (discriminant >= 0.0)
+        {
+            const double root = std::sqrt(discriminant);
+            candidates.push_back((-qb - root) / (2.0 * qa));
+            candidates.push_back((-qb + root) / (2.0 * qa));
+        }
+        candidates.push_back(-qb / (2.0 * qa));
+    }
+    else if (std::abs(qb) > kEpsilon)
+    {
+        candidates.push_back(-qc / qb);
+    }
+
+    std::sort(candidates.begin(), candidates.end());
+    candidates.erase(
+        std::unique(
+            candidates.begin(), candidates.end(),
+            [](double first, double second)
+            {
+                return std::abs(first - second) < kEpsilon;
+            }),
+        candidates.end());
+
+    minimumSeparation = std::numeric_limits<DistanceMeters>::infinity();
+    bool conflict = false;
+    firstTime = 0.0;
+    lastTime = 0.0;
+
+    for (double candidate : candidates)
+    {
+        if (candidate < 0.0 || candidate > interval)
+        {
+            continue;
+        }
+
+        const Sample a = interpolate(a0, a1, start + candidate);
+        const Sample b = interpolate(b0, b1, start + candidate);
+        minimumSeparation =
+            std::min(minimumSeparation, std::abs(a.position - b.position));
+    }
+
+    for (std::size_t index = 0; index + 1 < candidates.size(); ++index)
+    {
+        const double left = std::max(0.0, candidates[index]);
+        const double right = std::min(interval, candidates[index + 1]);
+        if (right < left)
+        {
+            continue;
+        }
+
+        const double midpoint = (left + right) * 0.5;
+        if (f(midpoint) <= 0.0)
         {
             if (!conflict)
             {
-                firstTime = time;
+                firstTime = start + left;
                 conflict = true;
             }
-            lastTime = time;
+            lastTime = start + right;
         }
+    }
+
+    if (f(0.0) <= 0.0)
+    {
+        if (!conflict)
+        {
+            firstTime = start;
+        }
+        conflict = true;
+        lastTime = std::max(lastTime, start);
+    }
+    if (f(interval) <= 0.0)
+    {
+        if (!conflict)
+        {
+            firstTime = end;
+        }
+        conflict = true;
+        lastTime = std::max(lastTime, end);
     }
 
     return conflict;
