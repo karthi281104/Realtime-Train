@@ -49,6 +49,7 @@ add_executable(tcas
     src/demo/FoundationDemo.cpp
     src/demo/SimulationDemo.cpp
     src/demo/IntegratedDemo.cpp
+    src/demo/Module9Demo.cpp
 )
 
 target_link_libraries(tcas PRIVATE tcas_core)
@@ -79,6 +80,7 @@ add_executable(tcas_tests
     tests/physics/KinematicsEngineTest.cpp
     tests/navigation/RouteNavigatorTest.cpp
     tests/integration/PhysicsNavigationIntegrationTest.cpp
+    tests/integration/Module9IntegrationTest.cpp
     tests/sensor/OdometerTest.cpp
     tests/sensor/StateEstimatorTest.cpp
     tests/communication/MessageTest.cpp
