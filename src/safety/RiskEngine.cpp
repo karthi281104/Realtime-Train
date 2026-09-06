@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
 
 namespace tcas::safety
 {
@@ -11,11 +10,21 @@ namespace
 
 double clampScore(double value) noexcept
 {
+    if (!std::isfinite(value))
+    {
+        return 100.0;
+    }
+
     return std::clamp(value, 0.0, 100.0);
 }
 
 double clampConfidence(double value) noexcept
 {
+    if (!std::isfinite(value))
+    {
+        return 0.0;
+    }
+
     return std::clamp(value, 0.0, 1.0);
 }
 
@@ -31,7 +40,9 @@ bool RiskAssessment::isCritical() const noexcept
     return level == RiskLevel::Critical;
 }
 
-RiskAssessment RiskEngine::assess(const RiskInput& input) const noexcept
+RiskAssessment RiskEngine::assess(
+    const RiskInput& input
+) const noexcept
 {
     const double score =
         calculateTtcRisk(input.timeToCollision)
@@ -78,11 +89,13 @@ RiskLevel RiskEngine::classify(double score) noexcept
     return RiskLevel::Critical;
 }
 
-double RiskEngine::calculateTtcRisk(TimeSeconds ttc) noexcept
+double RiskEngine::calculateTtcRisk(
+    TimeSeconds ttc
+) noexcept
 {
     if (!std::isfinite(ttc))
     {
-        return 0.0;
+        return 40.0;
     }
 
     if (ttc <= 0.0)
@@ -119,9 +132,16 @@ double RiskEngine::calculateTtcRisk(TimeSeconds ttc) noexcept
 }
 
 double RiskEngine::calculateRelativeVelocityRisk(
-    SpeedMetersPerSecond relativeVelocity) noexcept
+    SpeedMetersPerSecond relativeVelocity
+) noexcept
 {
-    const double closingSpeed = std::max(0.0, relativeVelocity);
+    if (!std::isfinite(relativeVelocity))
+    {
+        return 20.0;
+    }
+
+    const double closingSpeed =
+        std::max(0.0, relativeVelocity);
 
     if (closingSpeed <= 1.0)
     {
@@ -148,12 +168,18 @@ double RiskEngine::calculateRelativeVelocityRisk(
 
 double RiskEngine::calculateBrakingRisk(
     DistanceMeters brakingDistance,
-    DistanceMeters safetyMargin) noexcept
+    DistanceMeters safetyMargin
+) noexcept
 {
     if (!std::isfinite(brakingDistance)
         || !std::isfinite(safetyMargin))
     {
-        return 20.0;
+        return 25.0;
+    }
+
+    if (brakingDistance < 0.0)
+    {
+        return 25.0;
     }
 
     if (safetyMargin <= 0.0)
@@ -161,12 +187,13 @@ double RiskEngine::calculateBrakingRisk(
         return 25.0;
     }
 
-    if (brakingDistance <= 0.0)
+    if (brakingDistance == 0.0)
     {
         return 0.0;
     }
 
-    const double ratio = safetyMargin / brakingDistance;
+    const double ratio =
+        safetyMargin / brakingDistance;
 
     if (ratio < 0.10)
     {
@@ -192,7 +219,8 @@ double RiskEngine::calculateBrakingRisk(
 }
 
 double RiskEngine::calculateConflictTypeRisk(
-    conflict::ConflictType type) noexcept
+    conflict::ConflictType type
+) noexcept
 {
     switch (type)
     {
@@ -209,10 +237,12 @@ double RiskEngine::calculateConflictTypeRisk(
         return 10.0;
     }
 
-    return 10.0;
+    return 15.0;
 }
 
-double RiskEngine::calculateMassRisk(double mass) noexcept
+double RiskEngine::calculateMassRisk(
+    double mass
+) noexcept
 {
     if (!std::isfinite(mass) || mass <= 0.0)
     {
@@ -238,15 +268,18 @@ double RiskEngine::calculateMassRisk(double mass) noexcept
 }
 
 double RiskEngine::calculateSensorRisk(
-    double sensorConfidence) noexcept
+    double sensorConfidence
+) noexcept
 {
-    const double confidence = clampConfidence(sensorConfidence);
+    const double confidence =
+        clampConfidence(sensorConfidence);
 
     return (1.0 - confidence) * 15.0;
 }
 
 double RiskEngine::calculateCommunicationRisk(
-    double communicationConfidence) noexcept
+    double communicationConfidence
+) noexcept
 {
     const double confidence =
         clampConfidence(communicationConfidence);

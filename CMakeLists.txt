@@ -40,10 +40,10 @@ add_library(tcas_core
     src/prediction/PredictionEngine.cpp
     src/conflict/ConflictDetector.cpp
     src/conflict/ResourceReservationManager.cpp
-        src/safety/RiskEngine.cpp
-        src/safety/PriorityEngine.cpp
-        src/safety/ConflictPriorityQueue.cpp
-        src/safety/ResolutionEngine.cpp
+    src/safety/RiskEngine.cpp
+    src/safety/PriorityEngine.cpp
+    src/safety/ConflictPriorityQueue.cpp
+    src/safety/ResolutionEngine.cpp
 )
 
 target_include_directories(tcas_core PUBLIC ${PROJECT_SOURCE_DIR}/include)
@@ -54,6 +54,7 @@ add_executable(tcas
     src/demo/SimulationDemo.cpp
     src/demo/IntegratedDemo.cpp
     src/demo/Module9Demo.cpp
+    src/demo/Module10demo.cpp
 )
 
 target_link_libraries(tcas PRIVATE tcas_core)

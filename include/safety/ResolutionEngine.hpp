@@ -18,6 +18,8 @@ struct ResolutionInput
 
     bool priorityGranted{ false };
 
+    // Caller indication. ResolutionEngine independently validates
+    // braking feasibility from the supplied distances.
     bool brakingFeasible{ true };
 
     DistanceMeters availableDistance{ 0.0 };
@@ -34,6 +36,11 @@ public:
     ) const noexcept;
 
 private:
+    [[nodiscard]]
+    static bool calculateBrakingFeasibility(
+        const ResolutionInput& input
+    ) noexcept;
+
     [[nodiscard]]
     static SafetyCommand emergencyBrake(
         const ResolutionInput& input

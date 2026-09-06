@@ -1,4 +1,5 @@
 #include "demo/IntegratedDemo.hpp"
+#include "demo/Module10demo.hpp"
 #include "demo/Module9Demo.hpp"
 
 #include "common/Types.hpp"
@@ -313,6 +314,7 @@ void runIntegratedDemo()
     std::cout << "  - Module 7 (Communication)  : V2V/V2I wireless channel with latency, range, and broadcast routing\n";
 
     runModule9Demo(network, trainManager);
+    runModule10Demo(network, trainManager);
 
     std::cout << "========================================================================\n\n";
 }

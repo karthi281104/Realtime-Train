@@ -2,8 +2,6 @@
 
 #include "common/Types.hpp"
 #include "conflict/Conflict.hpp"
-#include "sensor/SensorData.hpp"
-#include "train/Train.hpp"
 
 namespace tcas::safety
 {
@@ -18,22 +16,31 @@ enum class RiskLevel
 
 struct RiskInput
 {
+    // Time from the current simulation time until the predicted conflict.
     TimeSeconds timeToCollision{ 0.0 };
 
+    // Positive value represents closing speed.
     SpeedMetersPerSecond relativeVelocity{ 0.0 };
 
+    // Distance required to stop using the applicable braking model.
     DistanceMeters brakingDistance{ 0.0 };
 
+    // Remaining clearance after accounting for braking distance.
+    // Positive = remaining safety clearance.
+    // Zero/negative = insufficient clearance.
     DistanceMeters safetyMargin{ 0.0 };
 
     conflict::ConflictType conflictType{
         conflict::ConflictType::RearEnd
     };
 
+    // Mass of the train for which this risk assessment is being made.
     double trainMass{ 0.0 };
 
+    // [0, 1], where 1 = fully trusted.
     double sensorConfidence{ 1.0 };
 
+    // [0, 1], where 1 = fully trusted.
     double communicationConfidence{ 1.0 };
 };
 
@@ -60,14 +67,18 @@ class RiskEngine
 {
 public:
     [[nodiscard]]
-    RiskAssessment assess(const RiskInput& input) const noexcept;
+    RiskAssessment assess(
+        const RiskInput& input
+    ) const noexcept;
 
     [[nodiscard]]
     static RiskLevel classify(double score) noexcept;
 
 private:
     [[nodiscard]]
-    static double calculateTtcRisk(TimeSeconds ttc) noexcept;
+    static double calculateTtcRisk(
+        TimeSeconds ttc
+    ) noexcept;
 
     [[nodiscard]]
     static double calculateRelativeVelocityRisk(
@@ -86,7 +97,9 @@ private:
     ) noexcept;
 
     [[nodiscard]]
-    static double calculateMassRisk(double mass) noexcept;
+    static double calculateMassRisk(
+        double mass
+    ) noexcept;
 
     [[nodiscard]]
     static double calculateSensorRisk(
