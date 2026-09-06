@@ -2,6 +2,7 @@
 
 #include "common/Types.hpp"
 #include "conflict/Conflict.hpp"
+#include "infrastructure/RailwayNetwork.hpp"
 #include "prediction/FutureState.hpp"
 
 #include <vector>
@@ -14,12 +15,15 @@ class ConflictDetector
 public:
     explicit ConflictDetector(ConflictDetectionConfig config = {});
 
+    // Detects same-track, junction, and platform conflicts from predicted
+    // trajectories and the existing railway topology.
     [[nodiscard]]
     std::vector<Conflict> detect(
         TrainId trainA,
         const std::vector<prediction::FutureState>& trajectoryA,
         TrainId trainB,
-        const std::vector<prediction::FutureState>& trajectoryB
+        const std::vector<prediction::FutureState>& trajectoryB,
+        const infrastructure::RailwayNetwork& network
     ) const;
 
 private:
@@ -41,6 +45,16 @@ private:
         TimeSeconds& firstTime,
         TimeSeconds& lastTime
     ) const noexcept;
+
+    [[nodiscard]]
+    bool hasNodeConflict(
+        TrainId trainA,
+        const std::vector<prediction::FutureState>& trajectoryA,
+        TrainId trainB,
+        const std::vector<prediction::FutureState>& trajectoryB,
+        const infrastructure::RailwayNetwork& network,
+        std::vector<Conflict>& conflicts
+    ) const;
 };
 
 } // namespace tcas::conflict
