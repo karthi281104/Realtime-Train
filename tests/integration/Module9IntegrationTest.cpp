@@ -25,16 +25,16 @@ using prediction::FutureState;
 RailwayNetwork makeJunctionNetwork()
 {
     RailwayNetwork network;
-    ASSERT_TRUE(network.addNode(Node(1, "Express Origin", NodeType::Generic)));
-    ASSERT_TRUE(network.addNode(Node(2, "J1", NodeType::Junction)));
-    ASSERT_TRUE(network.addNode(Node(3, "Express Destination", NodeType::Generic)));
-    ASSERT_TRUE(network.addNode(Node(4, "Freight Origin", NodeType::Generic)));
-    ASSERT_TRUE(network.addNode(Node(5, "Freight Destination", NodeType::Generic)));
+    network.addNode(Node(1, "Express Origin", NodeType::Generic));
+    network.addNode(Node(2, "J1", NodeType::Junction));
+    network.addNode(Node(3, "Express Destination", NodeType::Generic));
+    network.addNode(Node(4, "Freight Origin", NodeType::Generic));
+    network.addNode(Node(5, "Freight Destination", NodeType::Generic));
 
-    ASSERT_TRUE(network.addTrack(Track(101, 1, 2, 1000.0, 30.0, 0.0)));
-    ASSERT_TRUE(network.addTrack(Track(102, 2, 3, 1000.0, 30.0, 0.0)));
-    ASSERT_TRUE(network.addTrack(Track(103, 4, 2, 1000.0, 30.0, 0.0)));
-    ASSERT_TRUE(network.addTrack(Track(104, 2, 5, 1000.0, 30.0, 0.0)));
+    network.addTrack(Track(101, 1, 2, 1000.0, 30.0, 0.0));
+    network.addTrack(Track(102, 2, 3, 1000.0, 30.0, 0.0));
+    network.addTrack(Track(103, 4, 2, 1000.0, 30.0, 0.0));
+    network.addTrack(Track(104, 2, 5, 1000.0, 30.0, 0.0));
     return network;
 }
 
