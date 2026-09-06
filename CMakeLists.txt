@@ -40,6 +40,10 @@ add_library(tcas_core
     src/prediction/PredictionEngine.cpp
     src/conflict/ConflictDetector.cpp
     src/conflict/ResourceReservationManager.cpp
+        src/safety/RiskEngine.cpp
+        src/safety/PriorityEngine.cpp
+        src/safety/ConflictPriorityQueue.cpp
+        src/safety/ResolutionEngine.cpp
 )
 
 target_include_directories(tcas_core PUBLIC ${PROJECT_SOURCE_DIR}/include)
@@ -87,6 +91,11 @@ add_executable(tcas_tests
     tests/communication/CommunicationChannelTest.cpp
     tests/prediction/PredictionEngineTest.cpp
     tests/conflict/ConflictDetectorTest.cpp
+    tests/safety/RiskEngineTest.cpp
+    tests/safety/PriorityEngineTest.cpp
+    tests/safety/ConflictPriorityQueueTest.cpp
+    tests/safety/ResolutionEngineTest.cpp
+    tests/safety/SafetyIntegrationTest.cpp
 )
 
 target_include_directories(tcas_tests PRIVATE ${PROJECT_SOURCE_DIR}/include)
