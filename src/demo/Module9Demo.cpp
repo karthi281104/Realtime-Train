@@ -117,6 +117,7 @@ void runModule9Demo(
         }
 
         std::cout << "J1 state: RELEASED\n";
+
         std::cout << "RESULT: predictive conflict detected and resource protected\n";
     }
     else
