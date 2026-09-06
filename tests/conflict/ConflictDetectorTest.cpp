@@ -1,10 +1,13 @@
 #include "conflict/ConflictDetector.hpp"
+#include "conflict/ResourceReservationManager.hpp"
 
 #include "infrastructure/Node.hpp"
 #include "infrastructure/RailwayNetwork.hpp"
 #include "infrastructure/Track.hpp"
 
 #include <gtest/gtest.h>
+
+#include <stdexcept>
 
 namespace tcas::conflict
 {
