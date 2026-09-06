@@ -45,16 +45,6 @@ private:
         TimeSeconds& firstTime,
         TimeSeconds& lastTime
     ) const noexcept;
-
-    [[nodiscard]]
-    bool hasNodeConflict(
-        TrainId trainA,
-        const std::vector<prediction::FutureState>& trajectoryA,
-        TrainId trainB,
-        const std::vector<prediction::FutureState>& trajectoryB,
-        const infrastructure::RailwayNetwork& network,
-        std::vector<Conflict>& conflicts
-    ) const;
 };
 
 } // namespace tcas::conflict
