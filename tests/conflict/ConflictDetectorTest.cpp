@@ -22,10 +22,13 @@ infrastructure::RailwayNetwork makeNetwork()
     EXPECT_TRUE(network.addNode({3, "B", infrastructure::NodeType::Generic}));
     EXPECT_TRUE(network.addNode({4, "P1", infrastructure::NodeType::Platform}));
     EXPECT_TRUE(network.addNode({5, "C", infrastructure::NodeType::Generic}));
+    EXPECT_TRUE(network.addNode({6, "D", infrastructure::NodeType::Generic}));
     EXPECT_TRUE(network.addTrack({101, 1, 2, 1000.0, 50.0, 0.0}));
     EXPECT_TRUE(network.addTrack({102, 2, 3, 1000.0, 50.0, 0.0}));
     EXPECT_TRUE(network.addTrack({103, 1, 4, 500.0, 30.0, 0.0}));
     EXPECT_TRUE(network.addTrack({104, 4, 5, 500.0, 30.0, 0.0}));
+    EXPECT_TRUE(network.addTrack({105, 6, 2, 1000.0, 50.0, 0.0}));
+    EXPECT_TRUE(network.addTrack({106, 2, 3, 1000.0, 50.0, 0.0}));
     return network;
 }
 
@@ -84,7 +87,7 @@ TEST(ConflictDetectorTest, DetectsJunctionConflictFromCommonNode)
         1,
         {state(0.0, 101, 900.0, 20.0), state(5.0, 102, 0.0, 20.0)},
         2,
-        {state(0.0, 103, 350.0, 30.0), state(5.0, 104, 0.0, 30.0)},
+        {state(0.0, 105, 900.0, 20.0), state(5.0, 106, 0.0, 20.0)},
         network);
 
     ASSERT_EQ(conflicts.size(), 1U);
