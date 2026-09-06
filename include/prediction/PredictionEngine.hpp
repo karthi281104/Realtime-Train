@@ -76,7 +76,6 @@ private:
         TimeSeconds horizon
     );
 
-    [[nodiscard]]
     static void validateRouteConnectivity(
         const infrastructure::RailwayNetwork& network,
         const navigation::RouteResult& route

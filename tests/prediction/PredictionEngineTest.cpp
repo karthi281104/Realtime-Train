@@ -681,4 +681,32 @@ TEST(PredictionEngineTest, HandlesPositionAtTrackBoundary)
     EXPECT_GT(predictions[0].position, 0.0);
 }
 
+TEST(PredictionEngineTest, StopsBeforeBoundaryWhenBrakingCannotReachBoundary)
+{
+    infrastructure::RailwayNetwork network;
+    EXPECT_TRUE(network.addNode(infrastructure::Node(1, "A", infrastructure::NodeType::Generic)));
+    EXPECT_TRUE(network.addNode(infrastructure::Node(2, "B", infrastructure::NodeType::Generic)));
+    // Long track 1000m
+    EXPECT_TRUE(network.addTrack(infrastructure::Track(101, 1, 2, 1000.0, 50.0, 0.0)));
+
+    navigation::RouteResult route;
+    route.success = true;
+    route.tracks = { 101 };
+    route.totalDistance = 1000.0;
+
+    train::ExpressTrain train(1, 100000.0, 60.0, 5.0, 5.0);
+    train.setPosition(0.0);
+    train.setVelocity(20.0);
+    train.setAcceleration(-5.0);
+
+    // v = 20 m/s, a = -5 m/s^2 => stops in 4s after moving 40m.
+    // Predict horizon 10s.
+    const auto predictions = PredictionEngine::predict(train, network, route, 101, { 10.0 });
+
+    ASSERT_EQ(predictions.size(), 1U);
+    EXPECT_EQ(predictions[0].trackId, 101U);
+    EXPECT_NEAR(predictions[0].position, 40.0, 1e-3);
+    EXPECT_NEAR(predictions[0].velocity, 0.0, 1e-3);
+}
+
 } // namespace tcas::prediction

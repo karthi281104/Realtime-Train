@@ -84,50 +84,47 @@ TimeSeconds PredictionEngine::calculateTimeToBoundary(
         return 0.0;
     }
 
-    if (velocity <= 0.0 && acceleration <= 0.0)
+    if (velocity <= 0.0)
     {
         return std::numeric_limits<double>::infinity();
     }
 
     if (std::abs(acceleration) < 1e-9)
     {
-        return velocity > 0.0
-                   ? distanceToBoundary / velocity
-                   : std::numeric_limits<double>::infinity();
+        return distanceToBoundary / velocity;
     }
 
     const double discriminant =
         velocity * velocity + 2.0 * acceleration * distanceToBoundary;
 
-    if (discriminant <= 0.0)
+    if (discriminant < 0.0)
     {
-        return velocity > 0.0
-                   ? distanceToBoundary / velocity
-                   : std::numeric_limits<double>::infinity();
+        // Train stops before reaching the boundary.
+        return std::numeric_limits<double>::infinity();
     }
 
-    const double sqrtDisc = std::sqrt(discriminant);
-    const double root1 = (-velocity + sqrtDisc) / acceleration;
-    const double root2 = (-velocity - sqrtDisc) / acceleration;
+    const double sqrtDiscriminant = std::sqrt(discriminant);
 
-    double candidate = std::numeric_limits<double>::infinity();
+    const double root1 =
+        (-velocity + sqrtDiscriminant) / acceleration;
+
+    const double root2 =
+        (-velocity - sqrtDiscriminant) / acceleration;
+
+    double boundaryTime =
+        std::numeric_limits<double>::infinity();
+
     if (root1 > 0.0)
     {
-        candidate = std::min(candidate, root1);
+        boundaryTime = std::min(boundaryTime, root1);
     }
+
     if (root2 > 0.0)
     {
-        candidate = std::min(candidate, root2);
+        boundaryTime = std::min(boundaryTime, root2);
     }
 
-    if (std::isfinite(candidate))
-    {
-        return candidate;
-    }
-
-    return velocity > 0.0
-               ? distanceToBoundary / velocity
-               : std::numeric_limits<double>::infinity();
+    return boundaryTime;
 }
 
 std::vector<FutureState> PredictionEngine::predictStandardHorizon(
@@ -440,7 +437,43 @@ PredictionEngine::PredictionPoint PredictionEngine::predictAtTime(
             effectiveAcceleration
         );
 
-        timeToBoundary = std::clamp(timeToBoundary, 0.0, remainingTime);
+        if (!std::isfinite(timeToBoundary))
+        {
+            const SpeedMetersPerSecond finalVelocity =
+                physics::KinematicsEngine::updateVelocity(
+                    velocity,
+                    effectiveAcceleration,
+                    remainingTime,
+                    trackSpeedLimit
+                );
+
+            const DistanceMeters finalPosition =
+                physics::KinematicsEngine::updatePosition(
+                    position,
+                    velocity,
+                    effectiveAcceleration,
+                    remainingTime
+                );
+
+            position = std::min(
+                finalPosition,
+                track->length()
+            );
+
+            velocity = finalVelocity;
+            acceleration = effectiveAcceleration;
+
+            elapsedTime += remainingTime;
+            remainingTime = 0.0;
+
+            break;
+        }
+
+        timeToBoundary = std::clamp(
+            timeToBoundary,
+            0.0,
+            remainingTime
+        );
 
         position = track->length();
 
