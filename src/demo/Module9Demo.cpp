@@ -68,7 +68,8 @@ void runModule9Demo()
     noiseConfig.measurementNoiseVel = 0.5;
     noiseConfig.measurementNoiseBalise = 0.01;
     sensor::Odometer expressOdometer(noiseConfig);
-    sensor::StateEstimator expressEstimator(noiseConfig, express->position(), express->velocity());
+    sensor::StateEstimator expressEstimator(
+        noiseConfig, express->position(), express->velocity());
     const auto measurement = expressOdometer.measure(
         express->position(), express->velocity(), express->acceleration(), 0.1, 0);
     expressEstimator.predict(0.1, 0);
@@ -76,7 +77,8 @@ void runModule9Demo()
     express->setPosition(expressEstimator.estimatedState().position);
 
     const auto expressPrediction = prediction::PredictionEngine::predictStandardHorizon(
-        *express, network, expressRoute, 101, expressEstimator.estimatedState().positionUncertainty);
+        *express, network, expressRoute, 101,
+        expressEstimator.estimatedState().positionUncertainty);
     const auto freightPrediction = prediction::PredictionEngine::predictStandardHorizon(
         *freight, network, freightRoute, 103, 1.0);
 
@@ -86,7 +88,8 @@ void runModule9Demo()
     communication::CommunicationChannel channel(channelConfig);
     channel.registerEntity(1);
     channel.registerEntity(2);
-    channel.sendMessage(communication::Message::makeHeartbeat(9001, 2, 0), 0.0, 0.0);
+    channel.sendMessage(
+        communication::Message::makeHeartbeat(9001, 2, 0), 0.0, 0.0);
     channel.step(1);
     const bool communicationHealthy = channel.totalDelivered() > 0;
 
@@ -130,7 +133,8 @@ void runModule9Demo()
 
         if (expressGranted)
         {
-            reservations.release(express->id(), junction);
+            const bool released = reservations.release(express->id(), junction);
+            std::cout << "J1 release: " << (released ? "SUCCESS" : "FAILED") << '\n';
             reservations.clearReleased();
         }
 
