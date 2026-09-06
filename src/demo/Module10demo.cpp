@@ -4,6 +4,7 @@
 #include "communication/Message.hpp"
 #include "conflict/ConflictDetector.hpp"
 #include "navigation/RouteNavigator.hpp"
+#include "physics/KinematicsEngine.hpp"
 #include "prediction/PredictionEngine.hpp"
 #include "safety/ConflictPriorityQueue.hpp"
 #include "safety/PriorityEngine.hpp"
@@ -62,6 +63,51 @@ const char* commandName(
     }
 
     return "UNKNOWN";
+}
+
+DistanceMeters distanceToResource(
+    const infrastructure::RailwayNetwork& network,
+    const navigation::RouteResult& route,
+    TrackId currentTrackId,
+    DistanceMeters currentPosition,
+    NodeId resourceNodeId)
+{
+    const auto currentTrack = std::find(
+        route.tracks.begin(), route.tracks.end(), currentTrackId);
+    if (currentTrack == route.tracks.end())
+    {
+        return 0.0;
+    }
+
+    const auto currentIndex = static_cast<std::size_t>(
+        std::distance(route.tracks.begin(), currentTrack));
+    DistanceMeters distance = 0.0;
+
+    for (std::size_t index = currentIndex; index < route.tracks.size(); ++index)
+    {
+        const auto* track = network.getTrack(route.tracks[index]);
+        if (track == nullptr)
+        {
+            return 0.0;
+        }
+
+        if (track->source() == resourceNodeId)
+        {
+            return distance;
+        }
+
+        const DistanceMeters position = index == currentIndex
+            ? std::clamp(currentPosition, 0.0, track->length())
+            : 0.0;
+        distance += track->length() - position;
+
+        if (track->destination() == resourceNodeId)
+        {
+            return distance;
+        }
+    }
+
+    return 0.0;
 }
 
 } // namespace
@@ -217,7 +263,6 @@ void runModule10Demo(
     // ------------------------------------------------------------
     // MODULE 9: Conflict detection
     // ------------------------------------------------------------
-
     conflict::ConflictDetector detector;
 
     const auto conflicts =
@@ -227,9 +272,6 @@ void runModule10Demo(
             freight->id(),
             freightPrediction,
             network);
-
-    std::cout << std::fixed
-              << std::setprecision(2);
 
     std::cout
         << "\n[INPUT]\n";
@@ -244,10 +286,9 @@ void runModule10Demo(
     std::cout
         << "Freight route status : "
         << (freightRoute.success
-                ? "SUCCESS"
-                : "FAILED")
+            ? "SUCCESS"
+            : "FAILED")
         << '\n';
-
     std::cout
         << "Express prediction points : "
         << expressPrediction.size()
@@ -319,9 +360,6 @@ void runModule10Demo(
                 trainA->velocity()
                 - trainB->velocity());
 
-        // Evaluate risk for the train that may need
-        // to yield. This will later be determined
-        // from priority.
         const auto priorityA =
             priorityEngine.assess(*trainA);
 
@@ -341,6 +379,16 @@ void runModule10Demo(
                 ? trainB
                 : trainA;
 
+        const TrackId yieldingTrackId = yieldingTrain->id() == express->id()
+            ? 101
+            : 105;
+        const auto& yieldingRoute = yieldingTrain->id() == express->id()
+            ? expressRoute
+            : freightRoute;
+        const auto* yieldingTrack = network.getTrack(yieldingTrackId);
+        const double gradient = yieldingTrack == nullptr
+            ? 0.0
+            : yieldingTrack->gradient();
         const double emergencyDeceleration =
             yieldingTrain->emergencyBraking();
 
@@ -350,16 +398,16 @@ void runModule10Demo(
                 yieldingTrain->velocity());
 
         const double brakingDistance =
-            emergencyDeceleration > 0.0
-                ? (speed * speed)
-                    / (2.0 * emergencyDeceleration)
-                : 0.0;
-
-        // The conflict detector's minimum separation
-        // represents the required protected separation.
-        const double safetyMargin =
-            detectedConflict.minimumSeparation
-            - brakingDistance;
+            physics::KinematicsEngine::emergencyStoppingDistance(
+                speed,
+                emergencyDeceleration,
+                gradient);
+        const double availableDistance = distanceToResource(
+            network,
+            yieldingRoute,
+            yieldingTrackId,
+            yieldingTrain->position(),
+            detectedConflict.resourceNodeId);
 
         safety::RiskInput riskInput;
 
@@ -372,7 +420,7 @@ void runModule10Demo(
             brakingDistance;
 
         riskInput.safetyMargin =
-            safetyMargin;
+            availableDistance - brakingDistance;
 
         riskInput.conflictType =
             detectedConflict.type;
@@ -467,25 +515,38 @@ void runModule10Demo(
         const double emergencyDeceleration =
             yieldingTrain->emergencyBraking();
 
-        const double requiredBrakingDistance =
-            emergencyDeceleration > 0.0
-                ? (speed * speed)
-                    / (2.0 * emergencyDeceleration)
-                : 0.0;
+        const TrackId yieldingTrackId = yieldingTrain->id() == express->id()
+            ? 101
+            : 105;
+        const auto& yieldingRoute = yieldingTrain->id() == express->id()
+            ? expressRoute
+            : freightRoute;
+        const auto* yieldingTrack = network.getTrack(yieldingTrackId);
+        const double gradient = yieldingTrack == nullptr
+            ? 0.0
+            : yieldingTrack->gradient();
 
-        // Demonstration of the available distance to the
-        // protected conflict zone.
-        const double availableDistance =
-            1000.0;
+        const double requiredBrakingDistance =
+            physics::KinematicsEngine::emergencyStoppingDistance(
+                speed,
+                emergencyDeceleration,
+                gradient);
+
+        const double availableDistance = distanceToResource(
+            network,
+            yieldingRoute,
+            yieldingTrackId,
+            yieldingTrain->position(),
+            prioritized.conflict.resourceNodeId);
+        const double safetyMargin =
+            availableDistance - requiredBrakingDistance;
 
         const bool brakingFeasible =
             std::isfinite(requiredBrakingDistance)
             && requiredBrakingDistance >= 0.0
             && availableDistance
                 >= requiredBrakingDistance
-                    + std::max(
-                        0.0,
-                        prioritized.risk.safetyMargin);
+                    + std::max(0.0, safetyMargin);
 
         // --------------------------------------------------------
         // MODULE 10: Resolution
