@@ -4,6 +4,7 @@
 #include "communication/Message.hpp"
 #include "conflict/ConflictDetector.hpp"
 #include "navigation/RouteNavigator.hpp"
+#include "physics/KinematicsEngine.hpp"
 #include "prediction/PredictionEngine.hpp"
 #include "safety/ConflictPriorityQueue.hpp"
 #include "safety/PriorityEngine.hpp"
@@ -62,6 +63,53 @@ const char* commandName(
     }
 
     return "UNKNOWN";
+}
+
+DistanceMeters distanceToResource(
+    const infrastructure::RailwayNetwork& network,
+    const navigation::RouteResult& route,
+    TrackId currentTrackId,
+    DistanceMeters currentPosition,
+    NodeId resourceNodeId)
+{
+    const auto currentTrack = std::find(
+        route.tracks.begin(),
+        route.tracks.end(),
+        currentTrackId);
+    if (currentTrack == route.tracks.end())
+    {
+        return 0.0;
+    }
+
+    const auto currentIndex = static_cast<std::size_t>(
+        std::distance(route.tracks.begin(), currentTrack));
+    DistanceMeters distance = 0.0;
+
+    for (std::size_t index = currentIndex; index < route.tracks.size(); ++index)
+    {
+        const auto* track = network.getTrack(route.tracks[index]);
+        if (track == nullptr)
+        {
+            return 0.0;
+        }
+
+        if (track->source() == resourceNodeId)
+        {
+            return distance;
+        }
+
+        const DistanceMeters position = index == currentIndex
+            ? std::clamp(currentPosition, 0.0, track->length())
+            : 0.0;
+        distance += track->length() - position;
+
+        if (track->destination() == resourceNodeId)
+        {
+            return distance;
+        }
+    }
+
+    return 0.0;
 }
 
 } // namespace
@@ -341,6 +389,17 @@ void runModule10Demo(
                 ? trainB
                 : trainA;
 
+        const TrackId yieldingTrackId = yieldingTrain->id() == express->id()
+            ? 101
+            : 105;
+        const auto& yieldingRoute = yieldingTrain->id() == express->id()
+            ? expressRoute
+            : freightRoute;
+        const auto* yieldingTrack = network.getTrack(yieldingTrackId);
+        const double gradient = yieldingTrack == nullptr
+            ? 0.0
+            : yieldingTrack->gradient();
+
         const double emergencyDeceleration =
             yieldingTrain->emergencyBraking();
 
@@ -350,16 +409,18 @@ void runModule10Demo(
                 yieldingTrain->velocity());
 
         const double brakingDistance =
-            emergencyDeceleration > 0.0
-                ? (speed * speed)
-                    / (2.0 * emergencyDeceleration)
-                : 0.0;
-
-        // The conflict detector's minimum separation
-        // represents the required protected separation.
+            physics::KinematicsEngine::emergencyStoppingDistance(
+                speed,
+                emergencyDeceleration,
+                gradient);
+        const double availableDistance = distanceToResource(
+            network,
+            yieldingRoute,
+            yieldingTrackId,
+            yieldingTrain->position(),
+            detectedConflict.resourceNodeId);
         const double safetyMargin =
-            detectedConflict.minimumSeparation
-            - brakingDistance;
+            availableDistance - brakingDistance;
 
         safety::RiskInput riskInput;
 
@@ -467,16 +528,29 @@ void runModule10Demo(
         const double emergencyDeceleration =
             yieldingTrain->emergencyBraking();
 
-        const double requiredBrakingDistance =
-            emergencyDeceleration > 0.0
-                ? (speed * speed)
-                    / (2.0 * emergencyDeceleration)
-                : 0.0;
+        const TrackId yieldingTrackId = yieldingTrain->id() == express->id()
+            ? 101
+            : 105;
+        const auto& yieldingRoute = yieldingTrain->id() == express->id()
+            ? expressRoute
+            : freightRoute;
+        const auto* yieldingTrack = network.getTrack(yieldingTrackId);
+        const double gradient = yieldingTrack == nullptr
+            ? 0.0
+            : yieldingTrack->gradient();
 
-        // Demonstration of the available distance to the
-        // protected conflict zone.
-        const double availableDistance =
-            1000.0;
+        const double requiredBrakingDistance =
+            physics::KinematicsEngine::emergencyStoppingDistance(
+                speed,
+                emergencyDeceleration,
+                gradient);
+
+        const double availableDistance = distanceToResource(
+            network,
+            yieldingRoute,
+            yieldingTrackId,
+            yieldingTrain->position(),
+            prioritized.conflict.resourceNodeId);
 
         const bool brakingFeasible =
             std::isfinite(requiredBrakingDistance)
