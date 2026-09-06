@@ -1,5 +1,6 @@
 #include "train/Train.hpp"
 
+#include <cmath>
 #include <stdexcept>
 
 namespace tcas::train
@@ -22,31 +23,31 @@ Train::Train(
       acceleration_(0.0),
       state_(TrainState::Idle)
 {
-    if (mass <= 0.0)
+    if (!std::isfinite(mass) || mass <= 0.0)
     {
         throw std::invalid_argument(
-            "Train mass must be greater than zero"
+            "Train mass must be finite and greater than zero"
         );
     }
 
-    if (maximumSpeed < 0.0)
+    if (!std::isfinite(maximumSpeed) || maximumSpeed < 0.0)
     {
         throw std::invalid_argument(
-            "Train maximum speed cannot be negative"
+            "Train maximum speed must be finite and non-negative"
         );
     }
 
-    if (serviceBraking < 0.0)
+    if (!std::isfinite(serviceBraking) || serviceBraking < 0.0)
     {
         throw std::invalid_argument(
-            "Service braking cannot be negative"
+            "Service braking must be finite and non-negative"
         );
     }
 
-    if (emergencyBraking < 0.0)
+    if (!std::isfinite(emergencyBraking) || emergencyBraking < 0.0)
     {
         throw std::invalid_argument(
-            "Emergency braking cannot be negative"
+            "Emergency braking must be finite and non-negative"
         );
     }
 
@@ -105,10 +106,10 @@ TrainState Train::state() const noexcept
 
 void Train::setPosition(double position)
 {
-    if (position < 0.0)
+    if (!std::isfinite(position) || position < 0.0)
     {
         throw std::invalid_argument(
-            "Train position cannot be negative"
+            "Train position must be finite and non-negative"
         );
     }
 
@@ -117,10 +118,10 @@ void Train::setPosition(double position)
 
 void Train::setVelocity(double velocity)
 {
-    if (velocity < 0.0)
+    if (!std::isfinite(velocity) || velocity < 0.0)
     {
         throw std::invalid_argument(
-            "Train velocity cannot be negative"
+            "Train velocity must be finite and non-negative"
         );
     }
 
@@ -136,6 +137,12 @@ void Train::setVelocity(double velocity)
 
 void Train::setAcceleration(double acceleration)
 {
+    if (!std::isfinite(acceleration))
+    {
+        throw std::invalid_argument(
+            "Train acceleration must be finite"
+        );
+    }
     acceleration_ = acceleration;
 }
 

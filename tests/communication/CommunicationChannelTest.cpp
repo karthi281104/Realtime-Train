@@ -266,3 +266,47 @@ TEST(CommunicationChannelTest, InFlightCountDecrementsOnDelivery)
     channel.step(5); // Deliver
     EXPECT_EQ(channel.inFlightCount(), 0u);
 }
+
+TEST(CommunicationChannelTest, UnicastToUnregisteredRecipientDropped)
+{
+    CommunicationChannel channel;
+    // Sender 1 registered, Recipient 2 NOT registered
+    channel.registerEntity(1);
+
+    auto msg = Message::makeHeartbeat(1, 1, 0);
+    msg.header.recipientId = 2; // 2 is unregistered
+
+    const bool sent = channel.sendMessage(msg);
+    EXPECT_FALSE(sent);
+    EXPECT_EQ(channel.totalSent(), 1u);
+    EXPECT_EQ(channel.totalDropped(), 1u);
+}
+
+TEST(CommunicationChannelTest, ProbabilisticPacketLossDropsExpectedPercentage)
+{
+    ChannelConfig config;
+    config.packetLossRate = 0.5; // 50% target loss rate
+
+    CommunicationChannel channel(config);
+    channel.registerEntity(2);
+
+    std::size_t sentCount = 0;
+    std::size_t acceptedCount = 0;
+
+    for (int i = 0; i < 100; ++i)
+    {
+        auto msg = Message::makeHeartbeat(static_cast<std::uint32_t>(i + 1), 1, 0);
+        msg.header.recipientId = 2;
+        if (channel.sendMessage(msg))
+        {
+            ++acceptedCount;
+        }
+        ++sentCount;
+    }
+
+    EXPECT_EQ(channel.totalSent(), 100u);
+    // With 50% drop rate and 100 packets, accepted packets should be significantly less than 100 and non-zero
+    EXPECT_GT(channel.totalDropped(), 0u);
+    EXPECT_LT(channel.totalDropped(), 100u);
+    EXPECT_NEAR(static_cast<double>(channel.totalDropped()) / 100.0, 0.5, 0.2);
+}

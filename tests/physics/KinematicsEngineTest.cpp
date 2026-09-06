@@ -30,6 +30,15 @@ TEST(KinematicsEngineTest, PositionWithAcceleration)
     );
 }
 
+TEST(KinematicsEngineTest, PositionAcceleratingFromRest)
+{
+    // u = 0, a = 1, t = 1 => s = 0.5 * 1 * 1 = 0.5
+    EXPECT_DOUBLE_EQ(
+        KinematicsEngine::updatePosition(0.0, 0.0, 1.0, 1.0),
+        0.5
+    );
+}
+
 TEST(KinematicsEngineTest, PositionZeroDtUnchanged)
 {
     EXPECT_DOUBLE_EQ(

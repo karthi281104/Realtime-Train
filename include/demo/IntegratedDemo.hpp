@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 namespace tcas::demo
 {
@@ -9,6 +9,8 @@ namespace tcas::demo
 // - Module 3: Deterministic Simulation Clock & Multi-rate Timers
 // - Module 4: Physics, Kinematics & Gradient-aware Braking
 // - Module 5: Dijkstra Route Navigation & Path Execution
+// - Module 6: Sensor Fusion & Kalman Filter State Estimation
+// - Module 7: V2V/V2I Wireless Communication Simulation
 void runIntegratedDemo();
 
 } // namespace tcas::demo

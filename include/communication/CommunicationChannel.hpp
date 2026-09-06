@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <random>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -66,6 +67,7 @@ public:
     [[nodiscard]]
     std::size_t inFlightCount() const noexcept;
 
+    // Delivery rate ratio (totalDelivered / totalSent). Returns 1.0 when no messages have been sent.
     [[nodiscard]]
     double deliveryRate() const noexcept;
 
@@ -85,6 +87,7 @@ private:
     std::size_t totalSent_{ 0 };
     std::size_t totalDelivered_{ 0 };
     std::size_t totalDropped_{ 0 };
+    std::mt19937 rng_{ 42 };
 };
 
 } // namespace tcas::communication

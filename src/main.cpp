@@ -1,4 +1,4 @@
-﻿#include "demo/IntegratedDemo.hpp"
+#include "demo/IntegratedDemo.hpp"
 #include "demo/FoundationDemo.hpp"
 #include "demo/SimulationDemo.hpp"
 
@@ -11,7 +11,7 @@ int main()
     std::cout << "              TCAS REAL-TIME TRAIN SYSTEM\n";
     std::cout << "============================================================\n";
 
-    // Run the full end-to-end integration demo of all implemented modules (1 to 5)
+    // Run the existing Modules 1-7 integrated demonstration.
     tcas::demo::runIntegratedDemo();
 
     return 0;
