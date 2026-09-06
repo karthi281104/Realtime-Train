@@ -68,11 +68,41 @@ struct NodeEvent
     DistanceMeters uncertainty{ 0.0 };
 };
 
+void addResourceEvent(
+    std::vector<NodeEvent>& events,
+    const prediction::FutureState& state,
+    const infrastructure::Track* track,
+    const infrastructure::RailwayNetwork& network)
+{
+    if (track == nullptr)
+    {
+        return;
+    }
+
+    const auto* node = network.getNode(track->source());
+    if (node != nullptr &&
+        (node->type() == infrastructure::NodeType::Junction ||
+         node->type() == infrastructure::NodeType::Platform))
+    {
+        events.push_back({track->source(), state.timestamp, state.uncertainty});
+    }
+}
+
 std::vector<NodeEvent> extractNodeEvents(
     const std::vector<prediction::FutureState>& trajectory,
     const infrastructure::RailwayNetwork& network)
 {
     std::vector<NodeEvent> events;
+    if (trajectory.empty())
+    {
+        return events;
+    }
+
+    addResourceEvent(
+        events,
+        trajectory.front(),
+        network.getTrack(trajectory.front().trackId),
+        network);
 
     for (std::size_t index = 1; index < trajectory.size(); ++index)
     {
@@ -91,11 +121,17 @@ std::vector<NodeEvent> extractNodeEvents(
             continue;
         }
 
-        events.push_back({
-            previousTrack->destination(),
-            current.timestamp,
-            current.uncertainty
-        });
+        const auto* node = network.getNode(previousTrack->destination());
+        if (node != nullptr &&
+            (node->type() == infrastructure::NodeType::Junction ||
+             node->type() == infrastructure::NodeType::Platform))
+        {
+            events.push_back({
+                previousTrack->destination(),
+                current.timestamp,
+                current.uncertainty
+            });
+        }
     }
 
     return events;
@@ -135,10 +171,6 @@ std::vector<Conflict> ConflictDetector::detect(
 
     std::vector<Conflict> conflicts;
 
-    // Prediction samples are discrete, so every adjacent pair is treated as
-    // a continuous interval. For intervals on the same track, conflict time is
-    // solved analytically rather than sampled. This prevents a collision that
-    // occurs between 5/10/20/30/60-second prediction points from being missed.
     for (std::size_t i = 0; i + 1 < trajectoryA.size(); ++i)
     {
         for (std::size_t j = 0; j + 1 < trajectoryB.size(); ++j)
@@ -176,7 +208,8 @@ std::vector<Conflict> ConflictDetector::detect(
             };
 
             const bool duplicate = std::any_of(
-                conflicts.begin(), conflicts.end(),
+                conflicts.begin(),
+                conflicts.end(),
                 [&](const Conflict& existing)
                 {
                     return existing.trackId == candidate.trackId &&
@@ -196,9 +229,7 @@ std::vector<Conflict> ConflictDetector::detect(
     for (const auto& eventA : eventsA)
     {
         const auto* node = network.getNode(eventA.nodeId);
-        if (node == nullptr ||
-            (node->type() != infrastructure::NodeType::Junction &&
-             node->type() != infrastructure::NodeType::Platform))
+        if (node == nullptr)
         {
             continue;
         }
@@ -216,7 +247,7 @@ std::vector<Conflict> ConflictDetector::detect(
                     ? ConflictType::Junction
                     : ConflictType::Platform;
 
-            conflicts.push_back({
+            const Conflict candidate{
                 trainA,
                 trainB,
                 type,
@@ -225,7 +256,21 @@ std::vector<Conflict> ConflictDetector::detect(
                 std::min(eventA.time, eventB.time),
                 std::max(eventA.time, eventB.time) + config_.resourceClearanceTime,
                 0.0
-            });
+            };
+
+            const bool duplicate = std::any_of(
+                conflicts.begin(),
+                conflicts.end(),
+                [&](const Conflict& existing)
+                {
+                    return existing.type == candidate.type &&
+                           existing.resourceNodeId == candidate.resourceNodeId &&
+                           std::abs(existing.firstConflictTime - candidate.firstConflictTime) < 1e-9;
+                });
+            if (!duplicate)
+            {
+                conflicts.push_back(candidate);
+            }
         }
     }
 
@@ -236,11 +281,9 @@ ConflictType ConflictDetector::classifySameTrack(
     const prediction::FutureState& a,
     const prediction::FutureState& b) const noexcept
 {
-    if (a.velocity * b.velocity < 0.0)
-    {
-        return ConflictType::HeadOn;
-    }
-    return ConflictType::RearEnd;
+    return (a.velocity * b.velocity < 0.0)
+        ? ConflictType::HeadOn
+        : ConflictType::RearEnd;
 }
 
 bool ConflictDetector::hasTemporalConflict(
@@ -260,9 +303,7 @@ bool ConflictDetector::hasTemporalConflict(
     }
 
     const TimeSeconds interval = end - start;
-    const double aDuration = a1.timestamp - a0.timestamp;
-    const double bDuration = b1.timestamp - b0.timestamp;
-    if (aDuration <= 0.0 || bDuration <= 0.0)
+    if (interval <= 0.0)
     {
         return false;
     }
@@ -275,16 +316,14 @@ bool ConflictDetector::hasTemporalConflict(
     const double relativeStart = aStart.position - bStart.position;
     const double relativeSlope =
         ((aEnd.position - aStart.position) - (bEnd.position - bStart.position)) /
-        std::max(interval, std::numeric_limits<double>::min());
+        interval;
     const double marginStart =
         config_.minimumTrackSeparation + aStart.uncertainty + bStart.uncertainty;
     const double marginSlope =
         ((aEnd.uncertainty - aStart.uncertainty) +
          (bEnd.uncertainty - bStart.uncertainty)) /
-        std::max(interval, std::numeric_limits<double>::min());
+        interval;
 
-    // Solve d(t)^2 - m(t)^2 <= 0, where d is relative position and m is the
-    // protected separation including both prediction uncertainties.
     const double qa = relativeSlope * relativeSlope - marginSlope * marginSlope;
     const double qb = 2.0 * (relativeStart * relativeSlope - marginStart * marginSlope);
     const double qc = relativeStart * relativeStart - marginStart * marginStart;
@@ -316,7 +355,8 @@ bool ConflictDetector::hasTemporalConflict(
     std::sort(candidates.begin(), candidates.end());
     candidates.erase(
         std::unique(
-            candidates.begin(), candidates.end(),
+            candidates.begin(),
+            candidates.end(),
             [](double first, double second)
             {
                 return std::abs(first - second) < kEpsilon;
@@ -334,7 +374,6 @@ bool ConflictDetector::hasTemporalConflict(
         {
             continue;
         }
-
         const Sample a = interpolate(a0, a1, start + candidate);
         const Sample b = interpolate(b0, b1, start + candidate);
         minimumSeparation =
@@ -362,37 +401,7 @@ bool ConflictDetector::hasTemporalConflict(
         }
     }
 
-    if (f(0.0) <= 0.0)
-    {
-        if (!conflict)
-        {
-            firstTime = start;
-        }
-        conflict = true;
-        lastTime = std::max(lastTime, start);
-    }
-    if (f(interval) <= 0.0)
-    {
-        if (!conflict)
-        {
-            firstTime = end;
-        }
-        conflict = true;
-        lastTime = std::max(lastTime, end);
-    }
-
     return conflict;
-}
-
-bool ConflictDetector::hasNodeConflict(
-    TrainId,
-    const std::vector<prediction::FutureState>&,
-    TrainId,
-    const std::vector<prediction::FutureState>&,
-    const infrastructure::RailwayNetwork&,
-    std::vector<Conflict>&) const
-{
-    return false;
 }
 
 } // namespace tcas::conflict
