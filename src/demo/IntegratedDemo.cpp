@@ -62,9 +62,13 @@ void runIntegratedDemo()
     network.addTrack(Track(102, 2, 3, 1500.0, 30.0,  0.020));
     network.addTrack(Track(103, 3, 4, 2500.0, 40.0, -0.015));
     network.addTrack(Track(104, 2, 5, 3000.0, 25.0,  0.010));
+    network.addNode(Node(6, "Freight Approach", NodeType::Generic));
+    network.addNode(Node(7, "Freight Yard", NodeType::Generic));
+    network.addTrack(Track(105, 6, 2, 2000.0, 25.0, 0.000));
+    network.addTrack(Track(106, 2, 7, 1800.0, 25.0, 0.000));
 
     std::cout << "Nodes added  : " << network.nodeCount() << " (Central, Alpha Jct, Beta Jct, North Term, South Harbor)\n";
-    std::cout << "Tracks added : " << network.trackCount() << " (Tracks 101, 102, 103, 104 with gradient profiles)\n";
+    std::cout << "Tracks added : " << network.trackCount() << " (101-106, including the Alpha freight approach)\n";
     std::cout << "Graph status : Weakly connected = " << (network.isWeaklyConnected() ? "YES" : "NO")
               << ", Cycles = " << (network.hasCycle() ? "YES" : "NO") << "\n";
 
@@ -308,7 +312,7 @@ void runIntegratedDemo()
     std::cout << "  - Module 6 (Sensor/Kalman)  : Odometer drift + Kalman filter state estimation with balise anchor\n";
     std::cout << "  - Module 7 (Communication)  : V2V/V2I wireless channel with latency, range, and broadcast routing\n";
 
-    runModule9Demo();
+    runModule9Demo(network, trainManager);
 
     std::cout << "========================================================================\n\n";
 }

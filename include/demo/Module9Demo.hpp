@@ -1,10 +1,16 @@
 #pragma once
 
+#include "infrastructure/RailwayNetwork.hpp"
+#include "train/TrainManager.hpp"
+
 namespace tcas::demo
 {
 
-// Runs the Module 9 integration scenario using the existing
-// infrastructure, navigation, prediction, conflict, and reservation layers.
-void runModule9Demo();
+// Runs Module 9 using the infrastructure and fleet created by the integrated
+// system demo.
+void runModule9Demo(
+	const infrastructure::RailwayNetwork& network,
+	train::TrainManager& trainManager
+);
 
 } // namespace tcas::demo

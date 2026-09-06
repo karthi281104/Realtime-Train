@@ -2,13 +2,10 @@
 #include "conflict/ResourceReservationManager.hpp"
 #include "communication/CommunicationChannel.hpp"
 #include "communication/Message.hpp"
-#include "infrastructure/RailwayNetwork.hpp"
 #include "navigation/RouteNavigator.hpp"
 #include "prediction/PredictionEngine.hpp"
 #include "sensor/Odometer.hpp"
 #include "sensor/StateEstimator.hpp"
-#include "train/ExpressTrain.hpp"
-#include "train/FreightTrain.hpp"
 #include "train/TrainManager.hpp"
 
 #include <iomanip>
@@ -17,51 +14,32 @@
 
 namespace tcas::demo
 {
-namespace
-{
-
-infrastructure::RailwayNetwork makeNetwork()
-{
-    infrastructure::RailwayNetwork network;
-    network.addNode({1, "Express Origin", infrastructure::NodeType::Generic});
-    network.addNode({2, "J1", infrastructure::NodeType::Junction});
-    network.addNode({3, "Express Destination", infrastructure::NodeType::Generic});
-    network.addNode({4, "Freight Origin", infrastructure::NodeType::Generic});
-    network.addNode({5, "Freight Destination", infrastructure::NodeType::Generic});
-    network.addTrack({101, 1, 2, 1000.0, 30.0, 0.0});
-    network.addTrack({102, 2, 3, 1000.0, 30.0, 0.0});
-    network.addTrack({103, 4, 2, 1000.0, 30.0, 0.0});
-    network.addTrack({104, 2, 5, 1000.0, 30.0, 0.0});
-    return network;
-}
-
-} // namespace
-
-void runModule9Demo()
+void runModule9Demo(
+    const infrastructure::RailwayNetwork& network,
+    train::TrainManager& trainManager)
 {
     std::cout << "\n============================================================\n";
     std::cout << "             MODULE 9: CONFLICT INTEGRATION\n";
     std::cout << "============================================================\n";
 
-    const auto network = makeNetwork();
-
-    train::TrainManager trainManager;
-    trainManager.addTrain(std::make_unique<train::ExpressTrain>(
-        1, 45000.0, 45.0, 0.9, 1.4));
-    trainManager.addTrain(std::make_unique<train::FreightTrain>(
-        2, 120000.0, 22.2, 0.5, 0.8));
-
     auto* express = trainManager.getTrain(1);
-    auto* freight = trainManager.getTrain(2);
-    express->setPosition(600.0);
+    auto* freight = trainManager.getTrain(3);
+    if (express == nullptr || freight == nullptr)
+    {
+        std::cout << "RESULT: shared fleet is missing Express #1 or Freight #3\n";
+        return;
+    }
+
+    // Stage the shared trains to reach Alpha Junction at the same horizon.
+    express->setPosition(1400.0);
     express->setVelocity(20.0);
     express->setAcceleration(0.0);
-    freight->setPosition(580.0);
+    freight->setPosition(1400.0);
     freight->setVelocity(20.0);
     freight->setAcceleration(0.0);
 
     const auto expressRoute = navigation::RouteNavigator::findRoute(network, 1, 3);
-    const auto freightRoute = navigation::RouteNavigator::findRoute(network, 4, 5);
+    const auto freightRoute = navigation::RouteNavigator::findRoute(network, 6, 7);
 
     sensor::SensorNoiseConfig noiseConfig;
     noiseConfig.measurementNoisePos = 2.0;
@@ -80,16 +58,16 @@ void runModule9Demo()
         *express, network, expressRoute, 101,
         expressEstimator.estimatedState().positionUncertainty);
     const auto freightPrediction = prediction::PredictionEngine::predictStandardHorizon(
-        *freight, network, freightRoute, 103, 1.0);
+        *freight, network, freightRoute, 105, 1.0);
 
     communication::ChannelConfig channelConfig;
     channelConfig.latencyTicks = 1;
     channelConfig.maxRangeMeters = 5000.0;
     communication::CommunicationChannel channel(channelConfig);
     channel.registerEntity(1);
-    channel.registerEntity(2);
+    channel.registerEntity(3);
     channel.sendMessage(
-        communication::Message::makeHeartbeat(9001, 2, 0), 0.0, 0.0);
+        communication::Message::makeHeartbeat(9001, 3, 0), 0.0, 0.0);
     channel.step(1);
     const bool communicationHealthy = channel.totalDelivered() > 0;
 
