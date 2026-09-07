@@ -14,6 +14,16 @@
 #include <string>
 #include <thread>
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 namespace tcas::app
 {
 
@@ -101,16 +111,205 @@ TcasApplication::~TcasApplication()
 
 int TcasApplication::run()
 {
-    printHeader();
+#ifdef _WIN32
+    // Enable ANSI Virtual Terminal Processing on Windows console
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hOut != INVALID_HANDLE_VALUE)
+    {
+        DWORD dwMode = 0;
+        if (GetConsoleMode(hOut, &dwMode))
+        {
+            SetConsoleMode(hOut, dwMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+        }
+    }
+#endif
+
     startSimulation();
 
-    while (!shutdown_)
+    std::string line;
+    while (!shutdown_ && std::getline(std::cin, line))
     {
-        const int cmd = readInt();
-        handleCommand(cmd);
+        processLine(line);
     }
 
+    if (orchestrator_)
+    {
+        orchestrator_->stop();
+        orchestrator_.reset();
+    }
+    std::cout << "\033[2J\033[H[OK] TCAS Application shut down cleanly. Goodbye.\n";
     return 0;
+}
+
+void TcasApplication::processLine(const std::string& rawLine)
+{
+    std::string line = rawLine;
+    while (!line.empty() && std::isspace(static_cast<unsigned char>(line.front())))
+    {
+        line.erase(line.begin());
+    }
+    while (!line.empty() && std::isspace(static_cast<unsigned char>(line.back())))
+    {
+        line.pop_back();
+    }
+    if (line.empty())
+    {
+        return;
+    }
+
+    const char firstChar = static_cast<char>(std::toupper(static_cast<unsigned char>(line[0])));
+
+    if (firstChar == 'P')
+    {
+        pauseSimulation();
+        return;
+    }
+    if (firstChar == 'R')
+    {
+        resumeSimulation();
+        return;
+    }
+    if (firstChar == 'Q')
+    {
+        shutdown_ = true;
+        return;
+    }
+    if (firstChar == 'F')
+    {
+        if (orchestrator_)
+        {
+            const auto st = orchestrator_->snapshot();
+            const bool newFault = !st.sensorFailure;
+            orchestrator_->setSensorFault(newFault);
+            orchestrator_->setOperatorMessage(newFault
+                ? "[FAULT] Sensor failure injected! Uncertainty increased."
+                : "[OK] Sensor fault cleared. Tracking nominal.");
+        }
+        return;
+    }
+    if (firstChar == 'C')
+    {
+        if (orchestrator_)
+        {
+            const auto st = orchestrator_->snapshot();
+            const bool newFault = !st.communicationFailure;
+            orchestrator_->setCommFault(newFault);
+            orchestrator_->setOperatorMessage(newFault
+                ? "[FAULT] Communication failure injected! Link degraded."
+                : "[OK] Communication restored. Nominal wireless link.");
+        }
+        return;
+    }
+    if (firstChar == 'H')
+    {
+        TrainId tid = 0;
+        std::istringstream iss(line.substr(1));
+        if (!(iss >> tid))
+        {
+            if (!currentRoutes_.empty()) { tid = currentRoutes_.front().trainId; }
+        }
+        if (tid != 0 && orchestrator_)
+        {
+            orchestrator_->postCommand({orchestrator::UserCommandType::HoldTrain, tid});
+            orchestrator_->setOperatorMessage("[OK] Train #" + std::to_string(tid) + " HELD at signal.");
+        }
+        return;
+    }
+    if (firstChar == 'S')
+    {
+        std::istringstream iss(line.substr(1));
+        double a = 0.0, b = 0.0;
+        TrainId tid = 0;
+        double speed = 0.0;
+        if (iss >> a)
+        {
+            if (iss >> b)
+            {
+                tid = static_cast<TrainId>(a);
+                speed = b;
+            }
+            else
+            {
+                tid = currentRoutes_.empty() ? 101 : currentRoutes_.front().trainId;
+                speed = a;
+            }
+        }
+        else
+        {
+            tid = currentRoutes_.empty() ? 101 : currentRoutes_.front().trainId;
+            speed = 15.0;
+        }
+        if (orchestrator_)
+        {
+            orchestrator_->postCommand({orchestrator::UserCommandType::SetSpeed, tid, speed});
+            orchestrator_->setOperatorMessage("[OK] Speed command posted for Train #" + std::to_string(tid) + " -> " + std::to_string(static_cast<int>(speed)) + " m/s");
+        }
+        return;
+    }
+
+    try
+    {
+        const int num = std::stoi(line);
+        if (num >= 1 && num <= 8)
+        {
+            scenario::ScenarioType scen = scenario::ScenarioType::JunctionConflict;
+            switch (num)
+            {
+            case 1: scen = scenario::ScenarioType::JunctionConflict; break;
+            case 2: scen = scenario::ScenarioType::RearEndConflict; break;
+            case 3: scen = scenario::ScenarioType::HeadOnConflict; break;
+            case 4: scen = scenario::ScenarioType::PlatformConflict; break;
+            case 5: scen = scenario::ScenarioType::MultipleConflicts; break;
+            case 6: scen = scenario::ScenarioType::SensorFailure; break;
+            case 7: scen = scenario::ScenarioType::CommunicationFailure; break;
+            case 8: scen = scenario::ScenarioType::UnsafeStopping; break;
+            }
+            loadScenario(scen);
+            startSimulation();
+            if (orchestrator_)
+            {
+                orchestrator_->setOperatorMessage("[SCENARIO] " + std::string(scenario::ScenarioManager::scenarioName(scen)) + " active.");
+            }
+            return;
+        }
+        else if (num == 19)
+        {
+            shutdown_ = true;
+            return;
+        }
+        else if (num == 10)
+        {
+            if (orchestrator_) { orchestrator_->setSensorFault(true); orchestrator_->setOperatorMessage("[FAULT] Sensor fault injected."); }
+            return;
+        }
+        else if (num == 11)
+        {
+            if (orchestrator_) { orchestrator_->setSensorFault(false); orchestrator_->setOperatorMessage("[OK] Sensor recovered."); }
+            return;
+        }
+        else if (num == 12)
+        {
+            if (orchestrator_) { orchestrator_->setCommFault(true); orchestrator_->setOperatorMessage("[FAULT] Comm fault injected."); }
+            return;
+        }
+        else if (num == 13)
+        {
+            if (orchestrator_) { orchestrator_->setCommFault(false); orchestrator_->setOperatorMessage("[OK] Comm recovered."); }
+            return;
+        }
+        else
+        {
+            handleCommand(num);
+            return;
+        }
+    }
+    catch (...)
+    {
+        if (orchestrator_)
+        {
+            orchestrator_->setOperatorMessage("[ERR] Unknown command: " + line);
+        }
+    }
 }
 
 void TcasApplication::printHeader() const
@@ -279,8 +478,7 @@ void TcasApplication::startSimulation()
 
     orchestrator_->setSafetyStep(pipeline_->makeStep());
     orchestrator_->start();
-
-    std::cout << "[OK] Simulation started. Real-time safety pipeline active.\n";
+    orchestrator_->setOperatorMessage("[OK] Simulation started. Real-time safety pipeline active.");
 }
 
 void TcasApplication::pauseSimulation()
@@ -288,11 +486,7 @@ void TcasApplication::pauseSimulation()
     if (orchestrator_ && orchestrator_->isRunning())
     {
         orchestrator_->pause();
-        std::cout << "[OK] Simulation PAUSED. Physics and safety paused; dashboard remains active.\n";
-    }
-    else
-    {
-        std::cout << "[INFO] Simulation is not running.\n";
+        orchestrator_->setOperatorMessage("[OK] Simulation PAUSED. Dashboard remains live.");
     }
 }
 
@@ -301,13 +495,9 @@ void TcasApplication::resumeSimulation()
     if (orchestrator_ && orchestrator_->isPaused())
     {
         orchestrator_->resume();
-        std::cout << "[OK] Simulation RESUMED.\n";
+        orchestrator_->setOperatorMessage("[OK] Simulation RESUMED.");
     }
-    else if (orchestrator_ && orchestrator_->isRunning())
-    {
-        std::cout << "[INFO] Simulation is already running.\n";
-    }
-    else
+    else if (!orchestrator_ || !orchestrator_->isRunning())
     {
         startSimulation();
     }
@@ -696,11 +886,6 @@ void TcasApplication::loadScenario(scenario::ScenarioType type)
     const auto result = mgr.load(type);
 
     currentRoutes_ = result.routes;
-
-    std::cout << "\n[SCENARIO LOADED] " << scenario::ScenarioManager::scenarioName(type) << "\n"
-              << "--------------------------------------------------------------\n"
-              << result.description << "\n"
-              << "Trains in fleet: " << trainManager_.trainCount() << "\n";
 }
 
 } // namespace tcas::app

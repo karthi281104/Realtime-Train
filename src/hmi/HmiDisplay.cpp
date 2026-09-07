@@ -82,9 +82,17 @@ std::string HmiDisplay::format(const orchestrator::WorldState& state)
     output << "                    TCAS CONTROL CENTER\n";
     output << "==============================================================\n\n";
     output << "SYSTEM STATUS : " << systemStatusName(state.systemStatus) << '\n';
+    output << "SAFETY STATUS : " << (state.activeConflicts.empty() ? "SAFE" : "CONFLICT ACTIVE") << '\n';
     output << "SIMULATION    : " << state.simulationTime << " s\n";
     output << "COMMUNICATION : " << (state.communicationFailure ? "FAILED" : "OK") << '\n';
     output << "SENSORS       : " << (state.sensorFailure ? "FAILED" : "OK") << "\n\n";
+
+    output << "--------------------------------------------------------------\n";
+    output << "THREADS\n";
+    output << "Physics : " << state.timing.physicsCycles
+           << " | Safety : " << state.timing.safetyCycles
+           << " | Comm : " << state.timing.commCycles
+           << " | HMI : " << state.timing.hmiCycles << "\n";
 
     output << "--------------------------------------------------------------\n";
     output << "TRAIN STATUS\n";
@@ -158,10 +166,37 @@ std::string HmiDisplay::format(const orchestrator::WorldState& state)
                << " -> " << command.targetSpeed << " m/s\n";
     }
 
+    output << "\n--------------------------------------------------------------\n";
+    output << "ACTION:\n";
+    if (state.commands.empty())
+    {
+        output << "  Nominal operation (all trains clear)\n";
+    }
+    else
+    {
+        for (const auto& command : state.commands)
+        {
+            output << "Train #" << command.trainId << " -> "
+                   << commandName(command.type)
+                   << " -> " << command.targetSpeed << " m/s\n";
+        }
+    }
+
     output << "\nSYSTEM STATE : "
-           << (state.activeConflicts.empty() ? "SAFE" : "CONFLICT ACTIVE")
-            << "\n\n[P] Pause  [R] Resume  [S] Speed  [H] Hold  [F] Fault  [Q] Quit\n"
-            << "==============================================================\n";
+           << (state.activeConflicts.empty() ? "SAFE" : "CONFLICT ACTIVE") << '\n';
+
+    if (!state.operatorMessage.empty())
+    {
+        output << "OPERATOR MSG  : " << state.operatorMessage << '\n';
+    }
+    if (!state.safetyError.empty())
+    {
+        output << "SAFETY ERROR  : " << state.safetyError << '\n';
+    }
+
+    output << "\n[P] Pause  [R] Resume  [S] Speed  [H] Hold  [F] Fault  [C] Comm  [1-8] Scenarios  [Q] Quit\n"
+           << "==============================================================\n"
+           << "Command > ";
     return output.str();
 }
 
@@ -169,7 +204,8 @@ void HmiDisplay::render(
     const orchestrator::WorldState& state,
     std::ostream& output)
 {
-    output << format(state);
+    output << "\033[H" << format(state) << "\033[J";
+    output.flush();
 }
 
 } // namespace tcas::hmi

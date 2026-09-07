@@ -230,6 +230,12 @@ void ThreadOrchestrator::setTrainRoute(
     updateWorldSnapshotLocked();
 }
 
+void ThreadOrchestrator::setOperatorMessage(std::string message)
+{
+    std::unique_lock lock(worldMutex_);
+    worldState_.operatorMessage = std::move(message);
+}
+
 void ThreadOrchestrator::waitUntil(
     const std::chrono::steady_clock::time_point next)
 {
@@ -289,6 +295,22 @@ void ThreadOrchestrator::updateWorldSnapshotLocked()
             worldState_.communicationFailure)
             ? SystemStatus::Degraded
             : (running_.load() ? SystemStatus::Running : SystemStatus::Shutdown));
+
+    worldState_.timing.physicsCycles = physicsCycles_.load();
+    worldState_.timing.safetyCycles = safetyCycles_.load();
+    worldState_.timing.commCycles = communicationCycles_.load();
+    worldState_.timing.hmiCycles = hmiCycles_.load();
+    worldState_.timing.physicsPeriodTargetMs = static_cast<double>(config_.physicsPeriod.count());
+    worldState_.timing.safetyPeriodTargetMs = static_cast<double>(config_.safetyPeriod.count());
+    worldState_.timing.commPeriodTargetMs = static_cast<double>(config_.communicationPeriod.count());
+    worldState_.timing.hmiPeriodTargetMs = static_cast<double>(config_.hmiPeriod.count());
+    worldState_.timing.packetsSent = communicationChannel_.totalSent();
+    worldState_.timing.packetsDelivered = communicationChannel_.totalDelivered();
+    worldState_.timing.packetsDropped = communicationChannel_.totalDropped();
+    if (worldState_.timing.packetsSent > 0)
+    {
+        worldState_.timing.packetDropRatePct = (100.0 * worldState_.timing.packetsDropped) / worldState_.timing.packetsSent;
+    }
 }
 
 void ThreadOrchestrator::processUserCommandsLocked()
@@ -309,20 +331,39 @@ void ThreadOrchestrator::processUserCommandsLocked()
         case UserCommandType::Start:
             paused_.store(false);
             worldState_.systemStatus = SystemStatus::Running;
+            worldState_.operatorMessage = "[OK] Simulation RUNNING.";
             break;
 
         case UserCommandType::Pause:
             paused_.store(true);
             worldState_.systemStatus = SystemStatus::Paused;
+            worldState_.operatorMessage = "[OK] Simulation PAUSED.";
             break;
 
         case UserCommandType::Resume:
             paused_.store(false);
             worldState_.systemStatus = SystemStatus::Running;
+            worldState_.operatorMessage = "[OK] Simulation RESUMED.";
             break;
 
         case UserCommandType::SetSpeed:
-            operatorSpeedLimits_[cmd.trainId] = std::max(0.0, cmd.numericValue);
+            if (auto* train = trainManager_.getTrain(cmd.trainId))
+            {
+                if (train->state() == TrainState::EmergencyBrake)
+                {
+                    worldState_.operatorMessage = "[REJECTED] Train #" + std::to_string(cmd.trainId) +
+                        " is in EMERGENCY BRAKE. Safety constraint active.";
+                    break;
+                }
+                const double safetyLimit = safetySpeedLimits_.contains(cmd.trainId)
+                    ? safetySpeedLimits_[cmd.trainId]
+                    : train->maximumSpeed();
+                const double targetSpd = std::clamp(cmd.numericValue, 0.0, train->maximumSpeed());
+                operatorSpeedLimits_[cmd.trainId] = targetSpd;
+                train->setVelocity(std::min(targetSpd, safetyLimit));
+                worldState_.operatorMessage = "[OK] Speed for Train #" + std::to_string(cmd.trainId) +
+                    " set to " + std::to_string(static_cast<int>(targetSpd)) + " m/s";
+            }
             break;
 
         case UserCommandType::HoldTrain:
@@ -331,6 +372,7 @@ void ThreadOrchestrator::processUserCommandsLocked()
                 train->setVelocity(0.0);
                 train->setAcceleration(0.0);
                 train->setState(TrainState::Stopped);
+                worldState_.operatorMessage = "[OK] Train #" + std::to_string(cmd.trainId) + " HELD at signal.";
             }
             break;
 
@@ -339,6 +381,7 @@ void ThreadOrchestrator::processUserCommandsLocked()
             {
                 operatorSpeedLimits_[cmd.trainId] = std::max(0.0, cmd.numericValue);
                 train->setState(TrainState::Running);
+                worldState_.operatorMessage = "[OK] Train #" + std::to_string(cmd.trainId) + " RESUMED.";
             }
             break;
 
@@ -656,13 +699,6 @@ void ThreadOrchestrator::hmiLoop()
         if (config_.printHmi)
         {
             hmi::HmiDisplay::render(state, std::cout);
-            const auto metrics = performanceMetrics_.snapshot();
-            std::cout << "METRICS\n"
-                      << "  conflicts observed : " << metrics.conflictObservations << '\n'
-                      << "  emergency brakes   : " << metrics.emergencyBrakeCount << '\n'
-                      << "  minimum separation : " << metrics.minimumSeparation << " m\n"
-                      << "  minimum TTC        : " << metrics.minimumTtc << " s\n"
-                      << "  HMI latency max    : " << metrics.maximumHmiLatencyMs << " ms\n";
         }
         ++hmiCycles_;
         waitUntil(next);

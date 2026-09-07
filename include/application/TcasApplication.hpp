@@ -30,6 +30,7 @@ private:
     void printDashboard();
     void printMenu() const;
     void handleCommand(int cmd);
+    void processLine(const std::string& line);
 
     void startSimulation();
     void pauseSimulation();

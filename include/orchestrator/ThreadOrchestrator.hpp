@@ -100,6 +100,8 @@ public:
     void removeTrain(TrainId trainId);
     void setTrainRoute(TrainId trainId, TrackId startTrackId, navigation::RouteResult route);
 
+    void setOperatorMessage(std::string message);
+
 private:
     void physicsLoop();
     void safetyLoop();
