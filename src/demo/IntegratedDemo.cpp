@@ -1,5 +1,5 @@
 #include "demo/IntegratedDemo.hpp"
-#include "demo/Module10demo.hpp"
+#include "demo/Module10Demo.hpp"
 #include "demo/Module9Demo.hpp"
 
 #include "common/Types.hpp"

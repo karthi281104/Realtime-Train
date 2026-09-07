@@ -54,7 +54,7 @@ add_executable(tcas
     src/demo/SimulationDemo.cpp
     src/demo/IntegratedDemo.cpp
     src/demo/Module9Demo.cpp
-    src/demo/Module10demo.cpp
+    src/demo/Module10Demo.cpp
 )
 
 target_link_libraries(tcas PRIVATE tcas_core)
