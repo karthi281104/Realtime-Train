@@ -71,7 +71,7 @@ TEST(KinematicsEngineTest, PositionDecelerating)
 TEST(KinematicsEngineTest, VelocityRejectsInvalidMaximumSpeed)
 {
     EXPECT_THROW(
-        (void)KinematicsEngine::updateVelocity(20.0, 1.0, 1.0, -1.0),
+        KinematicsEngine::updateVelocity(20.0, 1.0, 1.0, -1.0),
         std::invalid_argument
     );
 }
@@ -80,9 +80,9 @@ TEST(KinematicsEngineTest, PhysicsRejectsNonFiniteInputs)
 {
     const double nan = std::numeric_limits<double>::quiet_NaN();
 
-    EXPECT_THROW((void)KinematicsEngine::updatePosition(0.0, nan, 0.0, 1.0), std::invalid_argument);
-    EXPECT_THROW((void)KinematicsEngine::effectiveDeceleration(1.0, nan), std::invalid_argument);
-    EXPECT_THROW((void)KinematicsEngine::brakingDistance(nan, 1.0), std::invalid_argument);
+    EXPECT_THROW(KinematicsEngine::updatePosition(0.0, nan, 0.0, 1.0), std::invalid_argument);
+    EXPECT_THROW(KinematicsEngine::effectiveDeceleration(1.0, nan), std::invalid_argument);
+    EXPECT_THROW(KinematicsEngine::brakingDistance(nan, 1.0), std::invalid_argument);
 }
 
 TEST(KinematicsEngineTest, VelocityConstantNoAcceleration)

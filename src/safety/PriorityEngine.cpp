@@ -10,7 +10,7 @@ bool PriorityAssessment::higherThan(
 }
 
 PriorityAssessment PriorityEngine::assess(
-    const train::Train& train) noexcept
+    const train::Train& train) const noexcept
 {
     PriorityAssessment result;
 

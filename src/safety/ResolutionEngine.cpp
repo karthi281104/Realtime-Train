@@ -8,7 +8,7 @@ namespace tcas::safety
 
 SafetyCommand ResolutionEngine::resolve(
     const ResolutionInput& input
-) noexcept
+) const noexcept
 {
     // Safety has absolute precedence over operational priority.
 

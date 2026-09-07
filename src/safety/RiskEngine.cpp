@@ -42,7 +42,7 @@ bool RiskAssessment::isCritical() const noexcept
 
 RiskAssessment RiskEngine::assess(
     const RiskInput& input
-) noexcept
+) const noexcept
 {
     const double score =
         calculateTtcRisk(input.timeToCollision)

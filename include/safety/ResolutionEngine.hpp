@@ -31,9 +31,9 @@ class ResolutionEngine
 {
 public:
     [[nodiscard]]
-    static SafetyCommand resolve(
+    SafetyCommand resolve(
         const ResolutionInput& input
-    ) noexcept;
+    ) const noexcept;
 
 private:
     [[nodiscard]]
