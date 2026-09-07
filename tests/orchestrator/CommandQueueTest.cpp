@@ -31,7 +31,8 @@ TEST(CommandQueueTest, NullOutputAndEmptyQueueAreSafe)
     CommandQueue queue;
 
     EXPECT_FALSE(queue.tryPop(nullptr));
-    EXPECT_FALSE(queue.tryPop(new safety::SafetyCommand{}));
+    safety::SafetyCommand result;
+    EXPECT_FALSE(queue.tryPop(&result));
     queue.clear();
     EXPECT_EQ(queue.size(), 0U);
 }

@@ -28,9 +28,15 @@ struct OrchestratorConfig
     bool printHmi{ false };
 };
 
-using SafetyStep = std::function<void(
-    const WorldState&,
-    CommandQueue&)>;
+struct SafetyCycleResult
+{
+    std::vector<prediction::FutureState> predictions;
+    std::vector<conflict::Conflict> activeConflicts;
+    std::vector<conflict::ResourceReservation> reservations;
+    std::vector<safety::SafetyCommand> commands;
+};
+
+using SafetyStep = std::function<SafetyCycleResult(const WorldState&)>;
 
 class ThreadOrchestrator
 {
@@ -78,6 +84,8 @@ private:
     mutable std::shared_mutex worldMutex_;
     WorldState worldState_;
     CommandQueue commandQueue_;
+
+    mutable std::mutex safetyStepMutex_;
     SafetyStep safetyStep_;
 
     std::atomic<bool> running_{ false };

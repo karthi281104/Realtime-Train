@@ -165,6 +165,7 @@ void ThreadOrchestrator::physicsLoop()
             {
             case safety::SafetyCommandType::ReduceSpeed:
                 train->setVelocity(std::min(train->velocity(), command.targetSpeed));
+                train->setAcceleration(std::min(train->acceleration(), 0.0));
                 break;
             case safety::SafetyCommandType::HoldAtSignal:
             case safety::SafetyCommandType::EmergencyBrake:
@@ -213,12 +214,23 @@ void ThreadOrchestrator::safetyLoop()
         const WorldState state = snapshot();
         SafetyStep step;
         {
-            std::shared_lock lock(worldMutex_);
+            std::lock_guard lock(safetyStepMutex_);
             step = safetyStep_;
         }
         if (step)
         {
-            step(state, commandQueue_);
+            const SafetyCycleResult result = step(state);
+            {
+                std::unique_lock lock(worldMutex_);
+                worldState_.predictions = result.predictions;
+                worldState_.activeConflicts = result.activeConflicts;
+                worldState_.reservations = result.reservations;
+                worldState_.commands = result.commands;
+            }
+            for (const auto& command : result.commands)
+            {
+                commandQueue_.push(command);
+            }
         }
         ++safetyCycles_;
         waitUntil(next);
@@ -228,16 +240,23 @@ void ThreadOrchestrator::safetyLoop()
 void ThreadOrchestrator::communicationLoop()
 {
     auto next = std::chrono::steady_clock::now();
-    SimTimeTick tick = 0;
-
     while (running_.load())
     {
         next += config_.communicationPeriod;
-        communicationChannel_.step(++tick);
+        const auto state = snapshot();
+        const auto tick = static_cast<SimTimeTick>(
+            std::max(0.0, state.simulationTime) * 1000.0);
+        const auto sentBefore = communicationChannel_.totalSent();
+        const auto deliveredBefore = communicationChannel_.totalDelivered();
+        const auto droppedBefore = communicationChannel_.totalDropped();
+        communicationChannel_.step(tick);
         {
             std::unique_lock lock(worldMutex_);
+            const auto sent = communicationChannel_.totalSent() - sentBefore;
+            const auto delivered = communicationChannel_.totalDelivered() - deliveredBefore;
+            const auto dropped = communicationChannel_.totalDropped() - droppedBefore;
             worldState_.communicationFailure =
-                communicationChannel_.totalDropped() > communicationChannel_.totalDelivered();
+                sent > 0U && dropped > delivered;
         }
         ++communicationCycles_;
         waitUntil(next);
