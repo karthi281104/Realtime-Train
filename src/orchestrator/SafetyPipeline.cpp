@@ -201,6 +201,7 @@ SafetyCycleResult SafetyPipeline::run(const WorldState& state)
         std::vector<prediction::FutureState> trajectory;
         TrackId currentTrackId{ 0 };
         const navigation::RouteResult* route{ nullptr };
+        bool hasSensorFault{ false };
     };
 
     std::vector<TrainContext> contexts;
@@ -229,7 +230,11 @@ SafetyCycleResult SafetyPipeline::run(const WorldState& state)
             continue;
         }
 
-        const auto* track = network_.getTrack(trainRoute.currentTrackId);
+        const TrackId effectiveTrackId = (snap->trackId != 0)
+            ? snap->trackId
+            : trainRoute.currentTrackId;
+
+        const auto* track = network_.getTrack(effectiveTrackId);
         if (track != nullptr)
         {
             // Clamp proxy position to track length so PredictionEngine doesn't throw
@@ -245,7 +250,7 @@ SafetyCycleResult SafetyPipeline::run(const WorldState& state)
                     *proxy,
                     network_,
                     trainRoute.route,
-                    trainRoute.currentTrackId,
+                    effectiveTrackId,
                     1.0 /* m uncertainty */);
         }
         catch (const std::exception& /*e*/)
@@ -257,8 +262,9 @@ SafetyCycleResult SafetyPipeline::run(const WorldState& state)
         contexts.push_back({
             std::move(proxy),
             std::move(trajectory),
-            trainRoute.currentTrackId,
-            &trainRoute.route
+            effectiveTrackId,
+            &trainRoute.route,
+            snap->sensorFailure
         });
     }
 
@@ -325,8 +331,8 @@ SafetyCycleResult SafetyPipeline::run(const WorldState& state)
         }
         if (ctxA == nullptr || ctxB == nullptr) { continue; }
 
-        const TimeSeconds ttc =
-            std::max(0.0, detected.firstConflictTime - currentTime);
+        // detected.firstConflictTime is already the relative TTC from prediction horizons
+        const TimeSeconds ttc = std::max(0.0, detected.firstConflictTime);
         const double relVel = std::abs(
             ctxA->proxy->velocity() - ctxB->proxy->velocity());
 
@@ -363,7 +369,7 @@ SafetyCycleResult SafetyPipeline::run(const WorldState& state)
         riskInput.safetyMargin              = safetyMargin;
         riskInput.conflictType              = detected.type;
         riskInput.trainMass                 = yieldCtx->proxy->mass();
-        riskInput.sensorConfidence          = state.sensorFailure ? 0.5 : 1.0;
+        riskInput.sensorConfidence          = (yieldCtx->hasSensorFault || state.sensorFailure) ? 0.5 : 1.0;
         riskInput.communicationConfidence   = state.communicationFailure ? 0.4 : 1.0;
 
         const auto risk = riskEngine.assess(riskInput);
@@ -422,11 +428,12 @@ SafetyCycleResult SafetyPipeline::run(const WorldState& state)
             detected.trackId
         };
 
+        // Reservations manage absolute simulation time intervals
         const bool reserved = reservations_.request(
             prioCtx->proxy->id(),
             zone,
-            detected.firstConflictTime,
-            detected.lastConflictTime);
+            currentTime + detected.firstConflictTime,
+            currentTime + detected.lastConflictTime);
 
         if (!reserved)
         {

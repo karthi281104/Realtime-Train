@@ -384,4 +384,199 @@ TEST(ThreadOrchestratorTest, DynamicTrainAndFaultManagement)
     orchestrator.stop();
 }
 
+TEST(ThreadOrchestratorTest, TruePauseAndResume)
+{
+    train::TrainManager manager;
+    communication::CommunicationChannel channel;
+    const auto network = makeJunctionNetwork();
+
+    manager.addTrain(std::make_unique<train::ExpressTrain>(
+        1, 45000.0, 45.0, 0.9, 1.4));
+    manager.getTrain(1)->setVelocity(20.0);
+
+    OrchestratorConfig cfg;
+    cfg.physicsPeriod = std::chrono::milliseconds(10);
+    cfg.safetyPeriod = std::chrono::milliseconds(20);
+    cfg.hmiPeriod = std::chrono::milliseconds(20);
+
+    ThreadOrchestrator orchestrator(
+        network,
+        manager,
+        channel,
+        std::vector<TrainId>{ 1 },
+        cfg);
+
+    orchestrator.start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+
+    EXPECT_TRUE(orchestrator.isRunning());
+    EXPECT_FALSE(orchestrator.isPaused());
+
+    // Pause the simulation
+    orchestrator.pause();
+    EXPECT_TRUE(orchestrator.isPaused());
+
+    const auto statePaused1 = orchestrator.snapshot();
+    EXPECT_EQ(statePaused1.systemStatus, SystemStatus::Paused);
+    const double pausedSimTime = statePaused1.simulationTime;
+    const double pausedPos = statePaused1.trains.front().position;
+    const std::size_t pausedPhysCycles = orchestrator.physicsCycles();
+    const std::size_t pausedHmiCycles = orchestrator.hmiCycles();
+
+    // Sleep while paused
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    const auto statePaused2 = orchestrator.snapshot();
+    // Sim time and train position must NOT advance while paused
+    EXPECT_DOUBLE_EQ(statePaused2.simulationTime, pausedSimTime);
+    EXPECT_DOUBLE_EQ(statePaused2.trains.front().position, pausedPos);
+    EXPECT_EQ(orchestrator.physicsCycles(), pausedPhysCycles);
+
+    // HMI continues running
+    EXPECT_GT(orchestrator.hmiCycles(), pausedHmiCycles);
+
+    // Resume the simulation
+    orchestrator.resume();
+    EXPECT_FALSE(orchestrator.isPaused());
+    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+
+    const auto stateResumed = orchestrator.snapshot();
+    EXPECT_GT(stateResumed.simulationTime, pausedSimTime);
+    EXPECT_GT(stateResumed.trains.front().position, pausedPos);
+
+    orchestrator.stop();
+}
+
+TEST(ThreadOrchestratorTest, UserCommandQueueExecution)
+{
+    train::TrainManager manager;
+    communication::CommunicationChannel channel;
+    const auto network = makeJunctionNetwork();
+
+    manager.addTrain(std::make_unique<train::ExpressTrain>(
+        1, 45000.0, 45.0, 0.9, 1.4));
+    manager.getTrain(1)->setVelocity(10.0);
+
+    OrchestratorConfig cfg;
+    cfg.physicsPeriod = std::chrono::milliseconds(10);
+
+    ThreadOrchestrator orchestrator(
+        network,
+        manager,
+        channel,
+        std::vector<TrainId>{ 1 },
+        cfg);
+
+    orchestrator.start();
+
+    // Post SetSpeed command via queue
+    orchestrator.postCommand({UserCommandType::SetSpeed, 1, 35.0});
+    std::this_thread::sleep_for(std::chrono::milliseconds(60));
+
+    auto state = orchestrator.snapshot();
+    EXPECT_DOUBLE_EQ(state.trains.front().velocity, 35.0);
+
+    // Post Hold command via queue
+    orchestrator.postCommand({UserCommandType::HoldTrain, 1});
+    std::this_thread::sleep_for(std::chrono::milliseconds(60));
+
+    state = orchestrator.snapshot();
+    EXPECT_DOUBLE_EQ(state.trains.front().velocity, 0.0);
+    EXPECT_EQ(state.trains.front().state, TrainState::Stopped);
+
+    orchestrator.stop();
+}
+
+TEST(ThreadOrchestratorTest, TrackBoundaryProgression)
+{
+    train::TrainManager manager;
+    communication::CommunicationChannel channel;
+    const auto network = makeJunctionNetwork();
+
+    manager.addTrain(std::make_unique<train::ExpressTrain>(
+        1, 45000.0, 45.0, 0.9, 1.4));
+
+    // Track 101 has length 2000m. Put train at 1990m, moving at 40 m/s
+    manager.getTrain(1)->setPosition(1990.0);
+    manager.getTrain(1)->setVelocity(40.0);
+
+    const auto route = navigation::RouteNavigator::findRoute(network, 1, 3);
+    ASSERT_TRUE(route.success);
+    ASSERT_GE(route.tracks.size(), 2U);
+
+    OrchestratorConfig cfg;
+    cfg.physicsPeriod = std::chrono::milliseconds(10);
+
+    ThreadOrchestrator orchestrator(
+        network,
+        manager,
+        channel,
+        std::vector<TrainId>{ 1 },
+        cfg);
+
+    orchestrator.setTrainRoute(1, 101, route);
+    orchestrator.start();
+
+    // Let train cross boundary from Track 101 to 102
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    orchestrator.stop();
+
+    const auto state = orchestrator.snapshot();
+    ASSERT_FALSE(state.trains.empty());
+    // Train should have transitioned to Track 102!
+    EXPECT_EQ(state.trains.front().trackId, 102U);
+    EXPECT_LT(state.trains.front().position, 2000.0);
+}
+
+TEST(ThreadOrchestratorTest, PerTrainSensorFault)
+{
+    train::TrainManager manager;
+    communication::CommunicationChannel channel;
+    const auto network = makeJunctionNetwork();
+
+    manager.addTrain(std::make_unique<train::ExpressTrain>(
+        1, 45000.0, 45.0, 0.9, 1.4));
+    manager.addTrain(std::make_unique<train::FreightTrain>(
+        2, 120000.0, 22.2, 0.5, 0.8));
+
+    ThreadOrchestrator orchestrator(
+        network,
+        manager,
+        channel,
+        std::vector<TrainId>{ 1, 2 },
+        OrchestratorConfig{});
+
+    orchestrator.start();
+
+    // Inject sensor fault specifically on Train 1
+    orchestrator.setSensorFault(1, true);
+
+    auto state = orchestrator.snapshot();
+    EXPECT_TRUE(state.sensorFailure);
+
+    ASSERT_EQ(state.trains.size(), 2U);
+    for (const auto& t : state.trains)
+    {
+        if (t.id == 1)
+        {
+            EXPECT_TRUE(t.sensorFailure);
+        }
+        else if (t.id == 2)
+        {
+            EXPECT_FALSE(t.sensorFailure);
+        }
+    }
+
+    // Clear sensor fault on Train 1
+    orchestrator.setSensorFault(1, false);
+    state = orchestrator.snapshot();
+    EXPECT_FALSE(state.sensorFailure);
+    for (const auto& t : state.trains)
+    {
+        EXPECT_FALSE(t.sensorFailure);
+    }
+
+    orchestrator.stop();
+}
+
 } // namespace tcas::orchestrator

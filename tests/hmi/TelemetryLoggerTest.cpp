@@ -63,4 +63,34 @@ TEST_F(TelemetryLoggerTest, WritesTelemetryAndConflictFiles)
     EXPECT_NE(conflictText.find("train_a=1"), std::string::npos);
 }
 
+TEST_F(TelemetryLoggerTest, WritesEventsFile)
+{
+    {
+        TelemetryLogger logger(directory_);
+        orchestrator::WorldState state;
+        state.simulationTime = 5.0;
+        safety::SafetyCommand cmd;
+        cmd.type = safety::SafetyCommandType::EmergencyBrake;
+        cmd.trainId = 1;
+        state.commands.push_back(cmd);
+        state.activeConflicts.push_back({
+            1, 2, conflict::ConflictType::RearEnd,
+            10, 11, 4.5, 6.0, 15.0});
+
+        logger.logSnapshot(state);
+        logger.logConflicts(state);
+        logger.logEvent(5.0, "OPERATOR_COMMAND", "Pause simulation");
+    }
+
+    std::ifstream events(directory_ / "events.log");
+    ASSERT_TRUE(events.good());
+
+    const std::string eventsText(
+        (std::istreambuf_iterator<char>(events)),
+        std::istreambuf_iterator<char>());
+    EXPECT_NE(eventsText.find("SAFETY_COMMAND"), std::string::npos);
+    EXPECT_NE(eventsText.find("CONFLICT_DETECTED"), std::string::npos);
+    EXPECT_NE(eventsText.find("OPERATOR_COMMAND"), std::string::npos);
+}
+
 } // namespace tcas::hmi

@@ -19,6 +19,15 @@ void PerformanceMetrics::observe(
 
     for (const auto& conflict : state.activeConflicts)
     {
+        if (conflict.minimumSeparation <= 0.0)
+        {
+            ++metrics_.collisionCount;
+        }
+        else if (conflict.minimumSeparation < 50.0 && conflict.firstConflictTime < 5.0)
+        {
+            ++metrics_.nearMissCount;
+        }
+
         if (metrics_.minimumSeparation == 0.0)
         {
             metrics_.minimumSeparation = conflict.minimumSeparation;

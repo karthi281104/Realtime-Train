@@ -50,6 +50,7 @@ add_library(tcas_core
     src/hmi/HmiDisplay.cpp
     src/hmi/TelemetryLogger.cpp
     src/hmi/PerformanceMetrics.cpp
+    src/application/TcasApplication.cpp
 )
 
 target_include_directories(tcas_core PUBLIC ${PROJECT_SOURCE_DIR}/include)

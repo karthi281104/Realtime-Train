@@ -38,6 +38,7 @@ struct TrainSnapshot
     DistanceMeters position{ 0.0 };
     SpeedMetersPerSecond velocity{ 0.0 };
     AccelerationMetersPerSecondSquared acceleration{ 0.0 };
+    bool sensorFailure{ false };
 };
 
 struct WorldState

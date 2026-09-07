@@ -6,6 +6,7 @@
 #include "hmi/TelemetryLogger.hpp"
 #include "infrastructure/RailwayNetwork.hpp"
 #include "orchestrator/CommandQueue.hpp"
+#include "orchestrator/UserCommand.hpp"
 #include "orchestrator/WorldState.hpp"
 #include "train/TrainManager.hpp"
 
@@ -15,8 +16,11 @@
 #include <cstddef>
 #include <functional>
 #include <mutex>
+#include <queue>
 #include <shared_mutex>
 #include <thread>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace tcas::orchestrator
@@ -43,6 +47,14 @@ struct SafetyCycleResult
 
 using SafetyStep = std::function<SafetyCycleResult(const WorldState&)>;
 
+struct TrainNavigationState
+{
+    TrainId trainId{ 0 };
+    TrackId currentTrackId{ 0 };
+    std::size_t routeTrackIndex{ 0 };
+    navigation::RouteResult route;
+};
+
 class ThreadOrchestrator
 {
 public:
@@ -62,8 +74,11 @@ public:
 
     void start();
     void stop();
+    void pause();
+    void resume();
 
     [[nodiscard]] bool isRunning() const noexcept;
+    [[nodiscard]] bool isPaused() const noexcept;
     [[nodiscard]] WorldState snapshot() const;
     [[nodiscard]] std::size_t physicsCycles() const noexcept;
     [[nodiscard]] std::size_t safetyCycles() const noexcept;
@@ -72,10 +87,18 @@ public:
 
     void setSafetyStep(SafetyStep safetyStep);
 
+    // Thread-safe command dispatching from UI / external controllers
+    void postCommand(UserCommand command);
+
+    // Live fault injection
     void setSensorFault(bool fault);
+    void setSensorFault(TrainId trainId, bool fault);
     void setCommFault(bool fault);
+
+    // Dynamic train & route management
     void addTrain(TrainId trainId);
     void removeTrain(TrainId trainId);
+    void setTrainRoute(TrainId trainId, TrackId startTrackId, navigation::RouteResult route);
 
 private:
     void physicsLoop();
@@ -83,6 +106,7 @@ private:
     void communicationLoop();
     void hmiLoop();
     void updateWorldSnapshotLocked();
+    void processUserCommandsLocked();
     void waitUntil(std::chrono::steady_clock::time_point next);
 
     const infrastructure::RailwayNetwork& network_;
@@ -97,10 +121,19 @@ private:
     WorldState worldState_;
     CommandQueue commandQueue_;
 
+    mutable std::mutex userCommandMutex_;
+    std::queue<UserCommand> userCommandQueue_;
+
+    std::unordered_map<TrainId, TrainNavigationState> navStates_;
+    std::unordered_set<TrainId> failedSensors_;
+    std::atomic<bool> userCommFault_{ false };
+    std::atomic<bool> commChannelDegraded_{ false };
+
     mutable std::mutex safetyStepMutex_;
     SafetyStep safetyStep_;
 
     std::atomic<bool> running_{ false };
+    std::atomic<bool> paused_{ false };
     std::thread physicsThread_;
     std::thread safetyThread_;
     std::thread communicationThread_;

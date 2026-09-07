@@ -21,11 +21,13 @@ public:
 
     void logSnapshot(const orchestrator::WorldState& state);
     void logConflicts(const orchestrator::WorldState& state);
+    void logEvent(double timestamp, const std::string& eventType, const std::string& details);
 
 private:
     std::mutex mutex_;
     std::ofstream telemetryFile_;
     std::ofstream conflictFile_;
+    std::ofstream eventsFile_;
 };
 
 } // namespace tcas::hmi
