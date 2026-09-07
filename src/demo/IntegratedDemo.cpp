@@ -317,11 +317,14 @@ void runIntegratedDemo()
     runModule9Demo(network, trainManager);
     runModule10Demo(network, trainManager);
 
+    orchestrator::OrchestratorConfig orchestratorConfig;
+    orchestratorConfig.printHmi = true;
     orchestrator::ThreadOrchestrator orchestrator(
         network,
         trainManager,
         channel,
-        { 1, 2, 3 });
+        { 1, 2, 3 },
+        orchestratorConfig);
     orchestrator.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
     orchestrator.stop();

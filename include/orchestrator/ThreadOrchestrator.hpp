@@ -1,6 +1,9 @@
 #pragma once
 
 #include "communication/CommunicationChannel.hpp"
+#include "hmi/HmiDisplay.hpp"
+#include "hmi/PerformanceMetrics.hpp"
+#include "hmi/TelemetryLogger.hpp"
 #include "infrastructure/RailwayNetwork.hpp"
 #include "orchestrator/CommandQueue.hpp"
 #include "orchestrator/WorldState.hpp"
@@ -26,6 +29,7 @@ struct OrchestratorConfig
     std::chrono::milliseconds communicationPeriod{ 100 };
     std::chrono::milliseconds hmiPeriod{ 200 };
     bool printHmi{ false };
+    std::string telemetryDirectory{ "logs" };
 };
 
 struct SafetyCycleResult
@@ -80,6 +84,8 @@ private:
     communication::CommunicationChannel& communicationChannel_;
     std::vector<TrainId> trainIds_;
     OrchestratorConfig config_;
+    hmi::TelemetryLogger telemetryLogger_;
+    hmi::PerformanceMetrics performanceMetrics_;
 
     mutable std::shared_mutex worldMutex_;
     WorldState worldState_;

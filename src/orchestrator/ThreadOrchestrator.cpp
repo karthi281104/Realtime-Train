@@ -20,6 +20,7 @@ ThreadOrchestrator::ThreadOrchestrator(
       communicationChannel_(communicationChannel),
       trainIds_(std::move(trainIds)),
       config_(config),
+    telemetryLogger_(config_.telemetryDirectory),
       safetyStep_(std::move(safetyStep))
 {
     updateWorldSnapshotLocked();
@@ -135,6 +136,8 @@ void ThreadOrchestrator::updateWorldSnapshotLocked()
 
         worldState_.trains.push_back({
             train->id(),
+            train->type(),
+            0,
             train->state(),
             train->position(),
             train->velocity(),
@@ -270,12 +273,23 @@ void ThreadOrchestrator::hmiLoop()
     while (running_.load())
     {
         next += config_.hmiPeriod;
+        const auto started = std::chrono::steady_clock::now();
         const WorldState state = snapshot();
+        telemetryLogger_.logSnapshot(state);
+        telemetryLogger_.logConflicts(state);
+        performanceMetrics_.observe(
+            state,
+            std::chrono::steady_clock::now() - started);
         if (config_.printHmi)
         {
-            std::cout << "[HMI] t=" << state.simulationTime
-                      << " trains=" << state.trains.size()
-                      << " conflicts=" << state.activeConflicts.size() << '\n';
+            hmi::HmiDisplay::render(state, std::cout);
+            const auto metrics = performanceMetrics_.snapshot();
+            std::cout << "METRICS\n"
+                      << "  conflicts observed : " << metrics.conflictObservations << '\n'
+                      << "  emergency brakes   : " << metrics.emergencyBrakeCount << '\n'
+                      << "  minimum separation : " << metrics.minimumSeparation << " m\n"
+                      << "  minimum TTC        : " << metrics.minimumTtc << " s\n"
+                      << "  HMI latency max    : " << metrics.maximumHmiLatencyMs << " ms\n";
         }
         ++hmiCycles_;
         waitUntil(next);

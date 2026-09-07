@@ -45,6 +45,9 @@ add_library(tcas_core
     src/safety/ConflictPriorityQueue.cpp
     src/safety/ResolutionEngine.cpp
     src/orchestrator/ThreadOrchestrator.cpp
+    src/hmi/HmiDisplay.cpp
+    src/hmi/TelemetryLogger.cpp
+    src/hmi/PerformanceMetrics.cpp
 )
 
 target_include_directories(tcas_core PUBLIC ${PROJECT_SOURCE_DIR}/include)
@@ -100,6 +103,9 @@ add_executable(tcas_tests
     tests/safety/SafetyIntegrationTest.cpp
     tests/orchestrator/CommandQueueTest.cpp
     tests/orchestrator/ThreadOrchestratorTest.cpp
+    tests/hmi/HmiDisplayTest.cpp
+    tests/hmi/TelemetryLoggerTest.cpp
+    tests/hmi/PerformanceMetricsTest.cpp
 )
 
 target_include_directories(tcas_tests PRIVATE ${PROJECT_SOURCE_DIR}/include)

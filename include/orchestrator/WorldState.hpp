@@ -14,6 +14,8 @@ namespace tcas::orchestrator
 struct TrainSnapshot
 {
     TrainId id{ 0 };
+    TrainType type{ TrainType::Passenger };
+    TrackId trackId{ 0 };
     TrainState state{ TrainState::Idle };
     DistanceMeters position{ 0.0 };
     SpeedMetersPerSecond velocity{ 0.0 };
