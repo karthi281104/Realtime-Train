@@ -103,7 +103,7 @@ std::size_t ThreadOrchestrator::hmiCycles() const noexcept
 
 void ThreadOrchestrator::setSafetyStep(SafetyStep safetyStep)
 {
-    std::unique_lock lock(worldMutex_);
+    std::lock_guard lock(safetyStepMutex_);
     safetyStep_ = std::move(safetyStep);
 }
 
