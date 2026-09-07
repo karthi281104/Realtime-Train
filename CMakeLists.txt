@@ -11,12 +11,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Cross-platform compiler warning & flag configurations
 if(MSVC)
     add_compile_options(/W4 /permissive-)
 else()
     add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion)
 endif()
 
+# Threading support for Linux & POSIX environments
+find_package(Threads REQUIRED)
+
+# Core TCAS static library (Modules 1 through 10)
 add_library(tcas_core
     src/infrastructure/Node.cpp
     src/infrastructure/Track.cpp
@@ -51,7 +56,9 @@ add_library(tcas_core
 )
 
 target_include_directories(tcas_core PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(tcas_core PUBLIC Threads::Threads)
 
+# Main executable with real-time autonomous safety orchestrator and demo modes
 add_executable(tcas
     src/main.cpp
     src/demo/FoundationDemo.cpp
@@ -61,9 +68,18 @@ add_executable(tcas
     src/demo/Module10Demo.cpp
 )
 
-target_link_libraries(tcas PRIVATE tcas_core)
+target_link_libraries(tcas PRIVATE tcas_core Threads::Threads)
 target_include_directories(tcas PRIVATE ${PROJECT_SOURCE_DIR}/include)
 
+# Convenient custom build targets: `cmake --build build --target run`
+add_custom_target(run
+    COMMAND $<TARGET_FILE:tcas>
+    DEPENDS tcas
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Launching TCAS Real-Time Train Collision Avoidance System..."
+)
+
+# Fetch GoogleTest suite for automated testing
 include(FetchContent)
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_Declare(googletest
@@ -109,7 +125,15 @@ add_executable(tcas_tests
 )
 
 target_include_directories(tcas_tests PRIVATE ${PROJECT_SOURCE_DIR}/include)
-target_link_libraries(tcas_tests PRIVATE tcas_core GTest::gtest GTest::gtest_main)
+target_link_libraries(tcas_tests PRIVATE tcas_core GTest::gtest GTest::gtest_main Threads::Threads)
+
+# Convenient custom test target: `cmake --build build --target check-tests`
+add_custom_target(check-tests
+    COMMAND $<TARGET_FILE:tcas_tests>
+    DEPENDS tcas_tests
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Running full TCAS test suite..."
+)
 
 include(GoogleTest)
 gtest_discover_tests(tcas_tests)

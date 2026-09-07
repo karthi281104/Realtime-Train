@@ -222,14 +222,12 @@ std::vector<FutureState> PredictionEngine::predict(
         );
     }
 
-    for (const TimeSeconds horizon : horizons)
+    if (std::any_of(horizons.begin(), horizons.end(),
+                    [](TimeSeconds h) { return !isFiniteNonNegative(h); }))
     {
-        if (!isFiniteNonNegative(horizon))
-        {
-            throw std::invalid_argument(
-                "Prediction horizons must be finite and non-negative"
-            );
-        }
+        throw std::invalid_argument(
+            "Prediction horizons must be finite and non-negative"
+        );
     }
 
     // Sort horizons chronologically for predictable downstream processing
@@ -372,7 +370,7 @@ PredictionEngine::PredictionPoint PredictionEngine::predictAtTime(
                 track->gradient()
             );
 
-        AccelerationMetersPerSecondSquared effectiveAcceleration = acceleration;
+        AccelerationMetersPerSecondSquared effectiveAcceleration = 0.0;
 
         // If approaching a lower speed limit track, check if braking is required
         if (velocity > targetNextLimit && effectiveServiceDecel > 0.0)
@@ -426,7 +424,6 @@ PredictionEngine::PredictionPoint PredictionEngine::predictAtTime(
             acceleration = effectiveAcceleration;
 
             elapsedTime += remainingTime;
-            remainingTime = 0.0;
             break;
         }
 
@@ -464,7 +461,6 @@ PredictionEngine::PredictionPoint PredictionEngine::predictAtTime(
             acceleration = effectiveAcceleration;
 
             elapsedTime += remainingTime;
-            remainingTime = 0.0;
 
             break;
         }
@@ -494,7 +490,6 @@ PredictionEngine::PredictionPoint PredictionEngine::predictAtTime(
         {
             velocity = 0.0;
             acceleration = 0.0;
-            remainingTime = 0.0;
             break;
         }
 

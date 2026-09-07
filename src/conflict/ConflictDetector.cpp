@@ -139,7 +139,7 @@ std::vector<NodeEvent> extractNodeEvents(
 
 } // namespace
 
-ConflictDetector::ConflictDetector(ConflictDetectionConfig config)
+ConflictDetector::ConflictDetector(const ConflictDetectionConfig& config)
     : config_(config)
 {
     if (!std::isfinite(config_.minimumTrackSeparation) ||
@@ -279,7 +279,7 @@ std::vector<Conflict> ConflictDetector::detect(
 
 ConflictType ConflictDetector::classifySameTrack(
     const prediction::FutureState& a,
-    const prediction::FutureState& b) const noexcept
+    const prediction::FutureState& b) noexcept
 {
     return (a.velocity * b.velocity < 0.0)
         ? ConflictType::HeadOn

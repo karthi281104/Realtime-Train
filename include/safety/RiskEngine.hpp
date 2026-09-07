@@ -67,9 +67,9 @@ class RiskEngine
 {
 public:
     [[nodiscard]]
-    RiskAssessment assess(
+    static RiskAssessment assess(
         const RiskInput& input
-    ) const noexcept;
+    ) noexcept;
 
     [[nodiscard]]
     static RiskLevel classify(double score) noexcept;

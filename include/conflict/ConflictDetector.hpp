@@ -13,7 +13,7 @@ namespace tcas::conflict
 class ConflictDetector
 {
 public:
-    explicit ConflictDetector(ConflictDetectionConfig config = {});
+    explicit ConflictDetector(const ConflictDetectionConfig& config = {});
 
     // Detects same-track, junction, and platform conflicts from predicted
     // trajectories and the existing railway topology.
@@ -30,10 +30,10 @@ private:
     ConflictDetectionConfig config_;
 
     [[nodiscard]]
-    ConflictType classifySameTrack(
+    static ConflictType classifySameTrack(
         const prediction::FutureState& a,
         const prediction::FutureState& b
-    ) const noexcept;
+    ) noexcept;
 
     [[nodiscard]]
     bool hasTemporalConflict(

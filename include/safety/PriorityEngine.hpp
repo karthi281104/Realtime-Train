@@ -22,9 +22,9 @@ class PriorityEngine
 {
 public:
     [[nodiscard]]
-    PriorityAssessment assess(
+    static PriorityAssessment assess(
         const train::Train& train
-    ) const noexcept;
+    ) noexcept;
 
     [[nodiscard]]
     static int basePriority(TrainType type) noexcept;

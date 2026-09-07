@@ -168,7 +168,7 @@ TEST(ConflictDetectorTest, RejectsSameTrain)
     ConflictDetector detector;
 
     EXPECT_THROW(
-        detector.detect(
+        (void)detector.detect(
             1,
             {state(0.0, 101, 0.0, 10.0)},
             1,
@@ -183,7 +183,7 @@ TEST(ConflictDetectorTest, RejectsNonFiniteTrajectory)
     ConflictDetector detector;
 
     EXPECT_THROW(
-        detector.detect(
+        (void)detector.detect(
             1,
             {state(0.0, 101, 0.0, 10.0),
              state(10.0, 101, std::numeric_limits<double>::quiet_NaN(), 10.0)},
@@ -227,7 +227,7 @@ TEST(ResourceReservationManagerTest, RejectsInvalidInterval)
     ResourceReservationManager manager;
     const ConflictZone zone{ConflictZoneType::Junction, 2, 0};
 
-    EXPECT_THROW(manager.request(1, zone, 20.0, 10.0), std::invalid_argument);
+    EXPECT_THROW((void)manager.request(1, zone, 20.0, 10.0), std::invalid_argument);
 }
 
 } // namespace tcas::conflict
