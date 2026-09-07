@@ -207,9 +207,9 @@ void runRealtimeSystem(const AppConfig& config)
     orchConfig.hmiPeriod = std::chrono::milliseconds(200);
     orchConfig.printHmi = config.verbose;
 
-    auto safetyStep = [&](const tcas::orchestrator::WorldState& world,
-                          tcas::orchestrator::CommandQueue& cmdQueue) {
-        if (world.trains.size() < 2) return;
+    auto safetyStep = [&](const tcas::orchestrator::WorldState& world) -> tcas::orchestrator::SafetyCycleResult {
+        tcas::orchestrator::SafetyCycleResult result;
+        if (world.trains.size() < 2) return result;
 
         std::vector<tcas::prediction::FutureState> traj1 = {
             {0.0, 101, world.trains[0].position, world.trains[0].velocity, 0.0, 1.0},
@@ -221,8 +221,12 @@ void runRealtimeSystem(const AppConfig& config)
             {5.0, 101, world.trains[1].position + world.trains[1].velocity * 5.0, world.trains[1].velocity, 0.0, 2.0}
         };
 
+        result.predictions.insert(result.predictions.end(), traj1.begin(), traj1.end());
+        result.predictions.insert(result.predictions.end(), traj2.begin(), traj2.end());
+
         auto conflicts = conflictDetector.detect(
             world.trains[0].id, traj1, world.trains[1].id, traj2, network);
+        result.activeConflicts = conflicts;
 
         for (const auto& c : conflicts)
         {
@@ -247,10 +251,11 @@ void runRealtimeSystem(const AppConfig& config)
                 auto cmd = resolutionEngine.resolve(resIn);
                 if (cmd.type != tcas::safety::SafetyCommandType::NoAction)
                 {
-                    cmdQueue.push(cmd);
+                    result.commands.push_back(cmd);
                 }
             }
         }
+        return result;
     };
 
     tcas::orchestrator::ThreadOrchestrator orchestrator(

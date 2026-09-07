@@ -148,7 +148,7 @@ void ThreadOrchestrator::updateWorldSnapshotLocked()
 void ThreadOrchestrator::physicsLoop()
 {
     auto next = std::chrono::steady_clock::now();
-    const double dt = config_.physicsPeriod.count() / 1000.0;
+    const double dt = static_cast<double>(config_.physicsPeriod.count()) / 1000.0;
 
     while (running_.load())
     {
