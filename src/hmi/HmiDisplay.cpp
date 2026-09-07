@@ -194,7 +194,17 @@ std::string HmiDisplay::format(const orchestrator::WorldState& state)
         output << "SAFETY ERROR  : " << state.safetyError << '\n';
     }
 
-    output << "\n[P] Pause  [R] Resume  [S] Speed  [H] Hold  [F] Fault  [C] Comm  [1-8] Scenarios  [Q] Quit\n"
+    output << "\n==============================================================\n"
+           << "OPERATOR ACTIONS:\n"
+           << "  [1] Start      [2] Pause      [3] Resume     [4] Add Train   [5] Remove Train\n"
+           << "  [6] Set Speed  [7] Chg Route  [8] Hold Train [9] Resume Train\n"
+           << " [10] Fault Sens [11] Recv Sens [12] Fault Comm [13] Recv Comm\n"
+           << " [14] Conflicts  [15] Reserv    [16] Telemetry  [17] Metrics   [18] Reset   [19] Shutdown\n\n"
+           << "DEMO SCENARIOS:\n"
+           << " [24] Junction Conflict    [25] Rear-End Conflict   [26] Head-On Conflict\n"
+           << " [27] Platform Conflict    [28] Multiple Conflicts  [29] Sensor Failure\n"
+           << " [30] Comm Failure         [31] Unsafe Stopping Distance\n"
+           << "Shortcuts: P=Pause, R=Resume, F=Sensor, C=Comm, S <id> <v>=Speed, H <id>=Hold, Q=Quit\n"
            << "==============================================================\n"
            << "Command > ";
     return output.str();

@@ -8,7 +8,9 @@
 #include "scenario/ScenarioManager.hpp"
 #include "train/TrainManager.hpp"
 
+#include <atomic>
 #include <memory>
+#include <thread>
 #include <vector>
 
 namespace tcas::app
@@ -31,6 +33,7 @@ private:
     void printMenu() const;
     void handleCommand(int cmd);
     void processLine(const std::string& line);
+    void inputLoop();
 
     void startSimulation();
     void pauseSimulation();
@@ -64,7 +67,8 @@ private:
     std::unique_ptr<orchestrator::ThreadOrchestrator> orchestrator_;
     hmi::PerformanceMetrics perfMetrics_;
     std::vector<orchestrator::SafetyPipeline::TrainRoute> currentRoutes_;
-    bool shutdown_{ false };
+    std::atomic<bool> shutdown_{ false };
+    std::thread inputThread_;
 };
 
 } // namespace tcas::app

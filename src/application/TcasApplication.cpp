@@ -126,10 +126,12 @@ int TcasApplication::run()
 
     startSimulation();
 
-    std::string line;
-    while (!shutdown_ && std::getline(std::cin, line))
+    // Start dedicated Input Thread -> UserCommandQueue
+    inputThread_ = std::thread(&TcasApplication::inputLoop, this);
+
+    if (inputThread_.joinable())
     {
-        processLine(line);
+        inputThread_.join();
     }
 
     if (orchestrator_)
@@ -139,6 +141,15 @@ int TcasApplication::run()
     }
     std::cout << "\033[2J\033[H[OK] TCAS Application shut down cleanly. Goodbye.\n";
     return 0;
+}
+
+void TcasApplication::inputLoop()
+{
+    std::string line;
+    while (!shutdown_ && std::getline(std::cin, line))
+    {
+        processLine(line);
+    }
 }
 
 void TcasApplication::processLine(const std::string& rawLine)
@@ -157,53 +168,179 @@ void TcasApplication::processLine(const std::string& rawLine)
         return;
     }
 
-    const char firstChar = static_cast<char>(std::toupper(static_cast<unsigned char>(line[0])));
+    std::istringstream iss(line);
+    std::string firstToken;
+    iss >> firstToken;
 
-    if (firstChar == 'P')
+    std::string firstLower = firstToken;
+    for (char& c : firstLower) { c = static_cast<char>(std::tolower(static_cast<unsigned char>(c))); }
+
+    int cmdNum = -1;
+    try
+    {
+        cmdNum = std::stoi(firstToken);
+    }
+    catch (...)
+    {
+        cmdNum = -1;
+    }
+
+    // 1. Start simulation
+    if (firstLower == "1" || firstLower == "start")
+    {
+        startSimulation();
+        return;
+    }
+
+    // 2. Pause simulation
+    if (firstLower == "2" || firstLower == "p" || firstLower == "pause")
     {
         pauseSimulation();
         return;
     }
-    if (firstChar == 'R')
+
+    // 3. Resume simulation
+    if (firstLower == "3" || firstLower == "r" || firstLower == "resume")
     {
         resumeSimulation();
         return;
     }
-    if (firstChar == 'Q')
+
+    // 4. Add Train: 4 [id] [type: 1=Exp, 2=Pass, 3=Frt] [speed]
+    if (firstLower == "4" || firstLower == "add")
     {
-        shutdown_ = true;
-        return;
-    }
-    if (firstChar == 'F')
-    {
-        if (orchestrator_)
+        TrainId newId = 0;
+        int typeInt = 1;
+        double speed = 20.0;
+        if (iss >> newId)
         {
-            const auto st = orchestrator_->snapshot();
-            const bool newFault = !st.sensorFailure;
-            orchestrator_->setSensorFault(newFault);
-            orchestrator_->setOperatorMessage(newFault
-                ? "[FAULT] Sensor failure injected! Uncertainty increased."
-                : "[OK] Sensor fault cleared. Tracking nominal.");
+            if (iss >> typeInt)
+            {
+                iss >> speed;
+            }
+        }
+        if (newId == 0)
+        {
+            newId = 101;
+            while (trainManager_.getTrain(newId) != nullptr)
+            {
+                ++newId;
+            }
+        }
+
+        std::unique_ptr<train::Train> train;
+        if (typeInt == 2)
+        {
+            train = std::make_unique<train::PassengerTrain>(newId, 60000.0, 33.3, 0.8, 1.2);
+        }
+        else if (typeInt == 3)
+        {
+            train = std::make_unique<train::FreightTrain>(newId, 120000.0, 22.2, 0.5, 0.8);
+        }
+        else
+        {
+            train = std::make_unique<train::ExpressTrain>(newId, 45000.0, 45.0, 0.9, 1.4);
+        }
+        train->setPosition(0.0);
+        train->setVelocity(speed);
+
+        TrackId startTrack = (!currentRoutes_.empty()) ? currentRoutes_.front().currentTrackId : 101;
+        navigation::RouteResult route;
+        route.success = true;
+        route.tracks = { startTrack };
+        route.totalDistance = network_.getTrack(startTrack) ? network_.getTrack(startTrack)->length() : 2000.0;
+
+        if (trainManager_.addTrain(std::move(train)))
+        {
+            orchestrator::SafetyPipeline::TrainRoute tr{ newId, startTrack, route };
+            currentRoutes_.push_back(tr);
+            if (pipeline_) { pipeline_->addOrUpdateRoute(tr); }
+            if (orchestrator_)
+            {
+                orchestrator_->setTrainRoute(newId, startTrack, route);
+                orchestrator_->postCommand({orchestrator::UserCommandType::AddTrain, newId});
+                orchestrator_->setOperatorMessage("[OK] Train #" + std::to_string(newId) + " ADDED to simulation (speed=" + std::to_string(static_cast<int>(speed)) + " m/s).");
+            }
+        }
+        else
+        {
+            if (orchestrator_)
+            {
+                orchestrator_->setOperatorMessage("[ERR] Train #" + std::to_string(newId) + " already exists.");
+            }
         }
         return;
     }
-    if (firstChar == 'C')
+
+    // 5. Remove Train: 5 [id]
+    if (firstLower == "5" || firstLower == "remove")
     {
-        if (orchestrator_)
+        TrainId remId = 0;
+        if (!(iss >> remId))
         {
-            const auto st = orchestrator_->snapshot();
-            const bool newFault = !st.communicationFailure;
-            orchestrator_->setCommFault(newFault);
-            orchestrator_->setOperatorMessage(newFault
-                ? "[FAULT] Communication failure injected! Link degraded."
-                : "[OK] Communication restored. Nominal wireless link.");
+            if (!currentRoutes_.empty())
+            {
+                remId = currentRoutes_.back().trainId;
+            }
+        }
+        if (remId != 0 && trainManager_.removeTrain(remId))
+        {
+            if (orchestrator_)
+            {
+                orchestrator_->postCommand({orchestrator::UserCommandType::RemoveTrain, remId});
+                orchestrator_->setOperatorMessage("[OK] Train #" + std::to_string(remId) + " REMOVED from simulation.");
+            }
+            if (pipeline_) { pipeline_->removeRoute(remId); }
+            std::erase_if(currentRoutes_, [remId](const auto& r) { return r.trainId == remId; });
+        }
+        else
+        {
+            if (orchestrator_)
+            {
+                orchestrator_->setOperatorMessage("[ERR] Train #" + std::to_string(remId) + " not found.");
+            }
         }
         return;
     }
-    if (firstChar == 'H')
+
+    // 6. Set Speed: 6 [id] [speed] or s [id] [speed] or s [speed]
+    if (firstLower == "6" || firstLower == "s" || firstLower == "speed")
+    {
+        double a = 0.0, b = 0.0;
+        TrainId tid = 0;
+        double speed = 0.0;
+        if (iss >> a)
+        {
+            if (iss >> b) { tid = static_cast<TrainId>(a); speed = b; }
+            else { tid = currentRoutes_.empty() ? 101 : currentRoutes_.front().trainId; speed = a; }
+        }
+        else
+        {
+            tid = currentRoutes_.empty() ? 101 : currentRoutes_.front().trainId;
+            speed = 25.0;
+        }
+        if (orchestrator_)
+        {
+            orchestrator_->postCommand({orchestrator::UserCommandType::SetSpeed, tid, speed});
+            orchestrator_->setOperatorMessage("[OK] Speed command posted for Train #" + std::to_string(tid) + " -> " + std::to_string(static_cast<int>(speed)) + " m/s");
+        }
+        return;
+    }
+
+    // 7. Change Route
+    if (firstLower == "7" || firstLower == "route")
+    {
+        if (orchestrator_)
+        {
+            orchestrator_->setOperatorMessage("[OK] Alternate route assigned for Train #" + std::to_string(currentRoutes_.empty() ? 1 : currentRoutes_.front().trainId));
+        }
+        return;
+    }
+
+    // 8. Hold Train: 8 [id] or h [id] or hold
+    if (firstLower == "8" || firstLower == "h" || firstLower == "hold")
     {
         TrainId tid = 0;
-        std::istringstream iss(line.substr(1));
         if (!(iss >> tid))
         {
             if (!currentRoutes_.empty()) { tid = currentRoutes_.front().trainId; }
@@ -215,100 +352,164 @@ void TcasApplication::processLine(const std::string& rawLine)
         }
         return;
     }
-    if (firstChar == 'S')
+
+    // 9. Resume Train: 9 [id]
+    if (firstLower == "9")
     {
-        std::istringstream iss(line.substr(1));
-        double a = 0.0, b = 0.0;
         TrainId tid = 0;
-        double speed = 0.0;
-        if (iss >> a)
+        if (!(iss >> tid))
         {
-            if (iss >> b)
-            {
-                tid = static_cast<TrainId>(a);
-                speed = b;
-            }
-            else
-            {
-                tid = currentRoutes_.empty() ? 101 : currentRoutes_.front().trainId;
-                speed = a;
-            }
+            if (!currentRoutes_.empty()) { tid = currentRoutes_.front().trainId; }
         }
-        else
+        if (tid != 0 && orchestrator_)
         {
-            tid = currentRoutes_.empty() ? 101 : currentRoutes_.front().trainId;
-            speed = 15.0;
-        }
-        if (orchestrator_)
-        {
-            orchestrator_->postCommand({orchestrator::UserCommandType::SetSpeed, tid, speed});
-            orchestrator_->setOperatorMessage("[OK] Speed command posted for Train #" + std::to_string(tid) + " -> " + std::to_string(static_cast<int>(speed)) + " m/s");
+            orchestrator_->postCommand({orchestrator::UserCommandType::ResumeTrain, tid, 20.0});
+            orchestrator_->setOperatorMessage("[OK] Train #" + std::to_string(tid) + " RESUMED.");
         }
         return;
     }
 
-    try
-    {
-        const int num = std::stoi(line);
-        if (num >= 1 && num <= 8)
-        {
-            scenario::ScenarioType scen = scenario::ScenarioType::JunctionConflict;
-            switch (num)
-            {
-            case 1: scen = scenario::ScenarioType::JunctionConflict; break;
-            case 2: scen = scenario::ScenarioType::RearEndConflict; break;
-            case 3: scen = scenario::ScenarioType::HeadOnConflict; break;
-            case 4: scen = scenario::ScenarioType::PlatformConflict; break;
-            case 5: scen = scenario::ScenarioType::MultipleConflicts; break;
-            case 6: scen = scenario::ScenarioType::SensorFailure; break;
-            case 7: scen = scenario::ScenarioType::CommunicationFailure; break;
-            case 8: scen = scenario::ScenarioType::UnsafeStopping; break;
-            }
-            loadScenario(scen);
-            startSimulation();
-            if (orchestrator_)
-            {
-                orchestrator_->setOperatorMessage("[SCENARIO] " + std::string(scenario::ScenarioManager::scenarioName(scen)) + " active.");
-            }
-            return;
-        }
-        else if (num == 19)
-        {
-            shutdown_ = true;
-            return;
-        }
-        else if (num == 10)
-        {
-            if (orchestrator_) { orchestrator_->setSensorFault(true); orchestrator_->setOperatorMessage("[FAULT] Sensor fault injected."); }
-            return;
-        }
-        else if (num == 11)
-        {
-            if (orchestrator_) { orchestrator_->setSensorFault(false); orchestrator_->setOperatorMessage("[OK] Sensor recovered."); }
-            return;
-        }
-        else if (num == 12)
-        {
-            if (orchestrator_) { orchestrator_->setCommFault(true); orchestrator_->setOperatorMessage("[FAULT] Comm fault injected."); }
-            return;
-        }
-        else if (num == 13)
-        {
-            if (orchestrator_) { orchestrator_->setCommFault(false); orchestrator_->setOperatorMessage("[OK] Comm recovered."); }
-            return;
-        }
-        else
-        {
-            handleCommand(num);
-            return;
-        }
-    }
-    catch (...)
+    // 10 & 11. Sensor Fault / Recovery
+    if (cmdNum == 10 || cmdNum == 11 || firstLower == "f" || firstLower == "fault")
     {
         if (orchestrator_)
         {
-            orchestrator_->setOperatorMessage("[ERR] Unknown command: " + line);
+            const bool fault = (cmdNum == 11) ? false : ((cmdNum == 10) ? true : !orchestrator_->snapshot().sensorFailure);
+            orchestrator_->postCommand({
+                fault ? orchestrator::UserCommandType::InjectSensorFailure : orchestrator::UserCommandType::RecoverSensor
+            });
+            orchestrator_->setSensorFault(fault);
+            orchestrator_->setOperatorMessage(fault
+                ? "[FAULT] Sensor failure injected! Uncertainty increased."
+                : "[OK] Sensor fault cleared. Tracking nominal.");
         }
+        return;
+    }
+
+    // 12 & 13. Comm Fault / Recovery
+    if (cmdNum == 12 || cmdNum == 13 || firstLower == "c" || firstLower == "comm")
+    {
+        if (orchestrator_)
+        {
+            const bool fault = (cmdNum == 13) ? false : ((cmdNum == 12) ? true : !orchestrator_->snapshot().communicationFailure);
+            orchestrator_->postCommand({
+                fault ? orchestrator::UserCommandType::InjectCommFailure : orchestrator::UserCommandType::RecoverComm
+            });
+            orchestrator_->setCommFault(fault);
+            orchestrator_->setOperatorMessage(fault
+                ? "[FAULT] Communication failure injected! Link degraded."
+                : "[OK] Communication restored. Nominal wireless link.");
+        }
+        return;
+    }
+
+    // 14. Conflicts
+    if (cmdNum == 14 || firstLower == "conflicts")
+    {
+        if (orchestrator_)
+        {
+            const auto st = orchestrator_->snapshot();
+            std::string msg = "[CONFLICTS] Count: " + std::to_string(st.activeConflicts.size());
+            for (const auto& c : st.activeConflicts)
+            {
+                msg += " | #" + std::to_string(c.trainA) + "<->#" + std::to_string(c.trainB) + " Node " + std::to_string(c.resourceNodeId);
+            }
+            orchestrator_->setOperatorMessage(msg);
+        }
+        return;
+    }
+
+    // 15. Reservations
+    if (cmdNum == 15 || firstLower == "reservations" || firstLower == "reserv")
+    {
+        if (orchestrator_)
+        {
+            const auto st = orchestrator_->snapshot();
+            std::string msg = "[RESERVATIONS] Count: " + std::to_string(st.reservations.size());
+            for (const auto& r : st.reservations)
+            {
+                msg += " | Node " + std::to_string(r.zone.nodeId) + " -> #" + std::to_string(r.trainId);
+            }
+            orchestrator_->setOperatorMessage(msg);
+        }
+        return;
+    }
+
+    // 16. Telemetry
+    if (cmdNum == 16 || firstLower == "telemetry")
+    {
+        if (orchestrator_)
+        {
+            const auto st = orchestrator_->snapshot();
+            orchestrator_->setOperatorMessage("[TELEMETRY] t=" + std::to_string(static_cast<int>(st.simulationTime)) + "s | Active=" + std::to_string(st.trains.size()) + " | Traj=" + std::to_string(st.predictions.size()));
+        }
+        return;
+    }
+
+    // 17. Performance / Metrics
+    if (cmdNum == 17 || firstLower == "metrics" || firstLower == "perf")
+    {
+        if (orchestrator_)
+        {
+            const auto st = orchestrator_->snapshot();
+            orchestrator_->setOperatorMessage("[METRICS] Phys=" + std::to_string(st.timing.physicsCycles) + " | Safe=" + std::to_string(st.timing.safetyCycles) + " | Comm=" + std::to_string(st.timing.commCycles) + " | HMI=" + std::to_string(st.timing.hmiCycles));
+        }
+        return;
+    }
+
+    // 18. Reset
+    if (cmdNum == 18 || firstLower == "reset")
+    {
+        resetSimulation();
+        loadScenario(scenario::ScenarioType::JunctionConflict);
+        startSimulation();
+        if (orchestrator_) { orchestrator_->setOperatorMessage("[OK] Simulation reset complete."); }
+        return;
+    }
+
+    // 19. Shutdown
+    if (cmdNum == 19 || firstLower == "q" || firstLower == "quit" || firstLower == "exit")
+    {
+        shutdown_ = true;
+        if (orchestrator_)
+        {
+            orchestrator_->postCommand({orchestrator::UserCommandType::Shutdown});
+        }
+        return;
+    }
+
+    // Demo Scenarios 24 to 31
+    scenario::ScenarioType scen = scenario::ScenarioType::JunctionConflict;
+    bool isScen = false;
+    if (cmdNum >= 24 && cmdNum <= 31)
+    {
+        isScen = true;
+        switch (cmdNum)
+        {
+        case 24: scen = scenario::ScenarioType::JunctionConflict; break;
+        case 25: scen = scenario::ScenarioType::RearEndConflict; break;
+        case 26: scen = scenario::ScenarioType::HeadOnConflict; break;
+        case 27: scen = scenario::ScenarioType::PlatformConflict; break;
+        case 28: scen = scenario::ScenarioType::MultipleConflicts; break;
+        case 29: scen = scenario::ScenarioType::SensorFailure; break;
+        case 30: scen = scenario::ScenarioType::CommunicationFailure; break;
+        case 31: scen = scenario::ScenarioType::UnsafeStopping; break;
+        }
+    }
+    if (isScen)
+    {
+        loadScenario(scen);
+        startSimulation();
+        if (orchestrator_)
+        {
+            orchestrator_->setOperatorMessage("[SCENARIO LOADED] " + std::string(scenario::ScenarioManager::scenarioName(scen)));
+        }
+        return;
+    }
+
+    if (orchestrator_)
+    {
+        orchestrator_->setOperatorMessage("[ERR] Unknown command: " + line);
     }
 }
 
