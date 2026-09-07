@@ -269,6 +269,10 @@ void ThreadOrchestrator::updateWorldSnapshotLocked()
             train->id(),
             train->type(),
             trackId,
+            train->mass(),
+            train->maximumSpeed(),
+            train->serviceBraking(),
+            train->emergencyBraking(),
             train->state(),
             train->position(),
             train->velocity(),
@@ -281,7 +285,10 @@ void ThreadOrchestrator::updateWorldSnapshotLocked()
     worldState_.communicationFailure = userCommFault_.load() || commChannelDegraded_.load();
     worldState_.systemStatus = paused_.load()
         ? SystemStatus::Paused
-        : (running_.load() ? SystemStatus::Running : SystemStatus::Shutdown);
+        : ((safetyFailure_.load() || worldState_.sensorFailure ||
+            worldState_.communicationFailure)
+            ? SystemStatus::Degraded
+            : (running_.load() ? SystemStatus::Running : SystemStatus::Shutdown));
 }
 
 void ThreadOrchestrator::processUserCommandsLocked()
@@ -315,10 +322,7 @@ void ThreadOrchestrator::processUserCommandsLocked()
             break;
 
         case UserCommandType::SetSpeed:
-            if (auto* train = trainManager_.getTrain(cmd.trainId))
-            {
-                train->setVelocity(cmd.numericValue);
-            }
+            operatorSpeedLimits_[cmd.trainId] = std::max(0.0, cmd.numericValue);
             break;
 
         case UserCommandType::HoldTrain:
@@ -333,7 +337,7 @@ void ThreadOrchestrator::processUserCommandsLocked()
         case UserCommandType::ResumeTrain:
             if (auto* train = trainManager_.getTrain(cmd.trainId))
             {
-                train->setVelocity(cmd.numericValue);
+                operatorSpeedLimits_[cmd.trainId] = std::max(0.0, cmd.numericValue);
                 train->setState(TrainState::Running);
             }
             break;
@@ -383,6 +387,8 @@ void ThreadOrchestrator::processUserCommandsLocked()
             std::erase(trainIds_, cmd.trainId);
             navStates_.erase(cmd.trainId);
             failedSensors_.erase(cmd.trainId);
+            operatorSpeedLimits_.erase(cmd.trainId);
+            safetySpeedLimits_.erase(cmd.trainId);
             break;
 
         case UserCommandType::ChangeRoute:
@@ -452,7 +458,13 @@ void ThreadOrchestrator::physicsLoop()
             switch (command.type)
             {
             case safety::SafetyCommandType::ReduceSpeed:
-                train->setVelocity(std::min(train->velocity(), command.targetSpeed));
+                safetySpeedLimits_[command.trainId] = std::min(
+                    safetySpeedLimits_.contains(command.trainId)
+                        ? safetySpeedLimits_[command.trainId]
+                        : train->maximumSpeed(),
+                    std::max(0.0, command.targetSpeed));
+                train->setVelocity(std::min(
+                    train->velocity(), safetySpeedLimits_[command.trainId]));
                 train->setAcceleration(std::min(train->acceleration(), 0.0));
                 break;
             case safety::SafetyCommandType::HoldAtSignal:
@@ -522,7 +534,17 @@ void ThreadOrchestrator::physicsLoop()
                 train->setPosition(newPosition);
             }
 
-            train->setVelocity(newVelocity);
+            const double operatorLimit = operatorSpeedLimits_.contains(trainId)
+                ? operatorSpeedLimits_[trainId]
+                : train->maximumSpeed();
+            const double safetyLimit = safetySpeedLimits_.contains(trainId)
+                ? safetySpeedLimits_[trainId]
+                : train->maximumSpeed();
+            train->setVelocity(std::min({
+                newVelocity,
+                operatorLimit,
+                safetyLimit,
+                train->maximumSpeed()}));
         }
 
         worldState_.simulationTime += dt;
@@ -571,9 +593,11 @@ void ThreadOrchestrator::safetyLoop()
                     commandQueue_.push(command);
                 }
             }
-            catch (const std::exception& /*e*/)
+            catch (const std::exception&)
             {
-                // Safety calculation exception handled safely
+                safetyFailure_.store(true);
+                std::unique_lock lock(worldMutex_);
+                worldState_.systemStatus = SystemStatus::Degraded;
             }
         }
         ++safetyCycles_;

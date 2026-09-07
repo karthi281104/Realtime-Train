@@ -65,6 +65,7 @@ TEST(SafetyPipelineTest, SingleTrainProducesNoPairConflict)
 
     WorldState state;
     state.trains.push_back({1, TrainType::Express, 101,
+        45000.0, 45.0, 0.9, 1.4,
         TrainState::Running, 500.0, 20.0, 0.0});
 
     const auto result = step(state);
@@ -101,8 +102,10 @@ TEST(SafetyPipelineTest, JunctionConflictProducesCommand)
 
     WorldState state;
     state.trains.push_back({1, TrainType::Express, 101,
+        45000.0, 45.0, 0.9, 1.4,
         TrainState::Running, 1900.0, 20.0, 0.0});
     state.trains.push_back({3, TrainType::Freight, 103,
+        120000.0, 22.2, 0.5, 0.8,
         TrainState::Running, 1900.0, 15.0, 0.0});
 
     const auto result = step(state);
@@ -138,8 +141,12 @@ TEST(SafetyPipelineTest, SensorFailureIncreasesRisk)
     const auto step = pipeline.makeStep();
 
     WorldState normal;
-    normal.trains.push_back({1, TrainType::Express, 101, TrainState::Running, 1900.0, 20.0, 0.0});
-    normal.trains.push_back({3, TrainType::Freight, 103, TrainState::Running, 1900.0, 15.0, 0.0});
+    normal.trains.push_back({1, TrainType::Express, 101,
+        45000.0, 45.0, 0.9, 1.4,
+        TrainState::Running, 1900.0, 20.0, 0.0});
+    normal.trains.push_back({3, TrainType::Freight, 103,
+        120000.0, 22.2, 0.5, 0.8,
+        TrainState::Running, 1900.0, 15.0, 0.0});
     normal.sensorFailure = false;
 
     WorldState degraded = normal;

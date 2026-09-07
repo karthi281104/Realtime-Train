@@ -7,6 +7,7 @@
 #include "train/PassengerTrain.hpp"
 
 #include <chrono>
+#include <cctype>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -31,6 +32,19 @@ int readInt()
     if (!std::getline(std::cin, line))
     {
         return -1;
+    }
+    if (line.size() == 1U)
+    {
+        switch (static_cast<char>(std::toupper(static_cast<unsigned char>(line[0]))))
+        {
+        case 'P': return 2;
+        case 'R': return 3;
+        case 'S': return 6;
+        case 'H': return 8;
+        case 'F': return 10;
+        case 'Q': return 19;
+        default: break;
+        }
     }
     try
     {
@@ -88,15 +102,11 @@ TcasApplication::~TcasApplication()
 int TcasApplication::run()
 {
     printHeader();
-    std::cout << "\nWelcome to the TCAS Control Center.\n"
-              << "Type a command number or choose a demo scenario.\n\n";
+    startSimulation();
 
     while (!shutdown_)
     {
-        printDashboard();
-        printMenu();
         const int cmd = readInt();
-        std::cout << "\n";
         handleCommand(cmd);
     }
 
@@ -257,7 +267,7 @@ void TcasApplication::startSimulation()
     }
 
     orchestrator::OrchestratorConfig cfg;
-    cfg.printHmi = false; // We render on-demand in the dashboard
+    cfg.printHmi = true;
 
     orchestrator_ = std::make_unique<orchestrator::ThreadOrchestrator>(
         network_, trainManager_, commChannel_, trainIds, cfg);
@@ -459,8 +469,6 @@ void TcasApplication::changeRouteInteractive()
         std::cout << "[ERR] No path found between Node " << srcNode << " and Node " << dstNode << ".\n";
         return;
     }
-
-    train->setPosition(0.0);
 
     orchestrator::SafetyPipeline::TrainRoute tr{
         id,

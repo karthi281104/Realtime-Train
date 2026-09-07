@@ -76,32 +76,25 @@ namespace
 // We use the real TrainManager to obtain the physics constants (mass, braking
 // deceleration etc.) and override the kinematic state from the snapshot.
 std::unique_ptr<train::Train> buildTrainProxy(
-    const TrainSnapshot& snap,
-    const train::TrainManager& manager)
+    const TrainSnapshot& snap)
 {
-    const auto* src = manager.getTrain(snap.id);
-    if (src == nullptr)
-    {
-        return nullptr;
-    }
-
     std::unique_ptr<train::Train> proxy;
-    switch (src->type())
+    switch (snap.type)
     {
     case TrainType::Express:
         proxy = std::make_unique<train::ExpressTrain>(
-            src->id(), src->mass(), src->maximumSpeed(),
-            src->serviceBraking(), src->emergencyBraking());
+            snap.id, snap.mass, snap.maximumSpeed,
+            snap.serviceBraking, snap.emergencyBraking);
         break;
     case TrainType::Passenger:
         proxy = std::make_unique<train::PassengerTrain>(
-            src->id(), src->mass(), src->maximumSpeed(),
-            src->serviceBraking(), src->emergencyBraking());
+            snap.id, snap.mass, snap.maximumSpeed,
+            snap.serviceBraking, snap.emergencyBraking);
         break;
     case TrainType::Freight:
         proxy = std::make_unique<train::FreightTrain>(
-            src->id(), src->mass(), src->maximumSpeed(),
-            src->serviceBraking(), src->emergencyBraking());
+            snap.id, snap.mass, snap.maximumSpeed,
+            snap.serviceBraking, snap.emergencyBraking);
         break;
     }
 
@@ -224,7 +217,7 @@ SafetyCycleResult SafetyPipeline::run(const WorldState& state)
             continue;
         }
 
-        auto proxy = buildTrainProxy(*snap, trainManager_);
+        auto proxy = buildTrainProxy(*snap);
         if (proxy == nullptr)
         {
             continue;

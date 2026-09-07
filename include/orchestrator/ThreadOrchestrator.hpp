@@ -125,9 +125,12 @@ private:
     std::queue<UserCommand> userCommandQueue_;
 
     std::unordered_map<TrainId, TrainNavigationState> navStates_;
+    std::unordered_map<TrainId, SpeedMetersPerSecond> operatorSpeedLimits_;
+    std::unordered_map<TrainId, SpeedMetersPerSecond> safetySpeedLimits_;
     std::unordered_set<TrainId> failedSensors_;
     std::atomic<bool> userCommFault_{ false };
     std::atomic<bool> commChannelDegraded_{ false };
+    std::atomic<bool> safetyFailure_{ false };
 
     mutable std::mutex safetyStepMutex_;
     SafetyStep safetyStep_;

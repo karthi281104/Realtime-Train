@@ -160,7 +160,8 @@ std::string HmiDisplay::format(const orchestrator::WorldState& state)
 
     output << "\nSYSTEM STATE : "
            << (state.activeConflicts.empty() ? "SAFE" : "CONFLICT ACTIVE")
-           << "\n==============================================================\n";
+            << "\n\n[P] Pause  [R] Resume  [S] Speed  [H] Hold  [F] Fault  [Q] Quit\n"
+            << "==============================================================\n";
     return output.str();
 }
 
