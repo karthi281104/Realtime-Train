@@ -44,6 +44,7 @@ add_library(tcas_core
     src/safety/PriorityEngine.cpp
     src/safety/ConflictPriorityQueue.cpp
     src/safety/ResolutionEngine.cpp
+    src/orchestrator/ThreadOrchestrator.cpp
 )
 
 target_include_directories(tcas_core PUBLIC ${PROJECT_SOURCE_DIR}/include)
@@ -97,6 +98,8 @@ add_executable(tcas_tests
     tests/safety/ConflictPriorityQueueTest.cpp
     tests/safety/ResolutionEngineTest.cpp
     tests/safety/SafetyIntegrationTest.cpp
+    tests/orchestrator/CommandQueueTest.cpp
+    tests/orchestrator/ThreadOrchestratorTest.cpp
 )
 
 target_include_directories(tcas_tests PRIVATE ${PROJECT_SOURCE_DIR}/include)

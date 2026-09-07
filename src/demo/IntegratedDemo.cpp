@@ -15,6 +15,7 @@
 #include "simulation/SimulationTimer.hpp"
 #include "physics/KinematicsEngine.hpp"
 #include "navigation/RouteNavigator.hpp"
+#include "orchestrator/ThreadOrchestrator.hpp"
 #include "sensor/Odometer.hpp"
 #include "sensor/StateEstimator.hpp"
 #include "communication/CommunicationChannel.hpp"
@@ -315,6 +316,19 @@ void runIntegratedDemo()
 
     runModule9Demo(network, trainManager);
     runModule10Demo(network, trainManager);
+
+    orchestrator::ThreadOrchestrator orchestrator(
+        network,
+        trainManager,
+        channel,
+        { 1, 2, 3 });
+    orchestrator.start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    orchestrator.stop();
+    std::cout << "Module 11 cycles: physics=" << orchestrator.physicsCycles()
+              << ", safety=" << orchestrator.safetyCycles()
+              << ", communication=" << orchestrator.communicationCycles()
+              << ", hmi=" << orchestrator.hmiCycles() << '\n';
 
     std::cout << "========================================================================\n\n";
 }
