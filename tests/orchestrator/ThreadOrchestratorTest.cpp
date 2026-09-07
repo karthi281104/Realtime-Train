@@ -327,4 +327,61 @@ TEST(ThreadOrchestratorTest, RealSafetyPipelinePublishesEmergencyCommand)
     EXPECT_TRUE(sawEmergency->load());
 }
 
+TEST(ThreadOrchestratorTest, DynamicTrainAndFaultManagement)
+{
+    train::TrainManager manager;
+    communication::CommunicationChannel channel;
+    const auto network = makeJunctionNetwork();
+
+    manager.addTrain(std::make_unique<train::ExpressTrain>(
+        1, 45000.0, 45.0, 0.9, 1.4));
+    manager.getTrain(1)->setVelocity(10.0);
+
+    ThreadOrchestrator orchestrator(
+        network,
+        manager,
+        channel,
+        std::vector<TrainId>{ 1 },
+        OrchestratorConfig{});
+
+    orchestrator.start();
+
+    // Verify initial state
+    auto state = orchestrator.snapshot();
+    EXPECT_EQ(state.trains.size(), 1U);
+    EXPECT_FALSE(state.sensorFailure);
+    EXPECT_FALSE(state.communicationFailure);
+
+    // Live fault injection
+    orchestrator.setSensorFault(true);
+    orchestrator.setCommFault(true);
+    state = orchestrator.snapshot();
+    EXPECT_TRUE(state.sensorFailure);
+    EXPECT_TRUE(state.communicationFailure);
+
+    // Live fault recovery
+    orchestrator.setSensorFault(false);
+    orchestrator.setCommFault(false);
+    state = orchestrator.snapshot();
+    EXPECT_FALSE(state.sensorFailure);
+    EXPECT_FALSE(state.communicationFailure);
+
+    // Live train addition
+    manager.addTrain(std::make_unique<train::FreightTrain>(
+        2, 120000.0, 22.2, 0.5, 0.8));
+    manager.getTrain(2)->setVelocity(8.0);
+    orchestrator.addTrain(2);
+
+    state = orchestrator.snapshot();
+    EXPECT_EQ(state.trains.size(), 2U);
+
+    // Live train removal
+    orchestrator.removeTrain(1);
+    state = orchestrator.snapshot();
+    EXPECT_EQ(state.trains.size(), 1U);
+    EXPECT_EQ(state.trains.front().id, 2U);
+
+    orchestrator.stop();
+}
+
 } // namespace tcas::orchestrator

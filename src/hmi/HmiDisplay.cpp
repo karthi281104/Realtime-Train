@@ -47,6 +47,19 @@ const char* conflictTypeName(const conflict::ConflictType type)
     return "UNKNOWN";
 }
 
+const char* systemStatusName(const orchestrator::SystemStatus s)
+{
+    switch (s)
+    {
+    case orchestrator::SystemStatus::Ready:    return "READY";
+    case orchestrator::SystemStatus::Running:  return "RUNNING";
+    case orchestrator::SystemStatus::Paused:   return "PAUSED";
+    case orchestrator::SystemStatus::Degraded: return "DEGRADED";
+    case orchestrator::SystemStatus::Shutdown: return "SHUTDOWN";
+    }
+    return "UNKNOWN";
+}
+
 const char* commandName(const safety::SafetyCommandType type)
 {
     switch (type)
@@ -68,7 +81,7 @@ std::string HmiDisplay::format(const orchestrator::WorldState& state)
     output << "==============================================================\n";
     output << "                    TCAS CONTROL CENTER\n";
     output << "==============================================================\n\n";
-    output << "SYSTEM STATUS : RUNNING\n";
+    output << "SYSTEM STATUS : " << systemStatusName(state.systemStatus) << '\n';
     output << "SIMULATION    : " << state.simulationTime << " s\n";
     output << "COMMUNICATION : " << (state.communicationFailure ? "FAILED" : "OK") << '\n';
     output << "SENSORS       : " << (state.sensorFailure ? "FAILED" : "OK") << "\n\n";
@@ -99,7 +112,22 @@ std::string HmiDisplay::format(const orchestrator::WorldState& state)
         output << "Type: " << conflictTypeName(conflict.type)
                << "  Node: " << conflict.resourceNodeId
                << "  Trains: " << conflict.trainA << " <-> " << conflict.trainB
-               << "  TTC: " << conflict.firstConflictTime << " s\n";
+               << "  TTC: " << conflict.firstConflictTime << " s"
+               << "  MinSep: " << conflict.minimumSeparation << " m\n";
+    }
+
+    if (!state.decisions.empty())
+    {
+        output << "\n--------------------------------------------------------------\n";
+        output << "SAFETY DECISIONS\n";
+        output << "--------------------------------------------------------------\n";
+        for (const auto& decision : state.decisions)
+        {
+            output << "Priority Train #" << decision.priorityTrain
+                   << "  Yielding Train #" << decision.yieldingTrain
+                   << "  Risk: " << decision.riskScore
+                   << "  Command: " << commandName(decision.commandType) << '\n';
+        }
     }
 
     output << "\n--------------------------------------------------------------\n";

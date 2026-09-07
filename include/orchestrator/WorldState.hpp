@@ -11,6 +11,24 @@
 namespace tcas::orchestrator
 {
 
+enum class SystemStatus
+{
+    Ready,
+    Running,
+    Paused,
+    Degraded,
+    Shutdown
+};
+
+struct SafetyDecision
+{
+    TrainId yieldingTrain{ 0 };
+    TrainId priorityTrain{ 0 };
+    double riskScore{ 0.0 };
+    safety::SafetyCommandType commandType{
+        safety::SafetyCommandType::NoAction };
+};
+
 struct TrainSnapshot
 {
     TrainId id{ 0 };
@@ -32,6 +50,8 @@ struct WorldState
     std::vector<safety::SafetyCommand> commands;
     bool sensorFailure{ false };
     bool communicationFailure{ false };
+    SystemStatus systemStatus{ SystemStatus::Ready };
+    std::vector<SafetyDecision> decisions;
 };
 
 } // namespace tcas::orchestrator

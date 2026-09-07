@@ -108,6 +108,39 @@ void ThreadOrchestrator::setSafetyStep(SafetyStep safetyStep)
     safetyStep_ = std::move(safetyStep);
 }
 
+void ThreadOrchestrator::setSensorFault(bool fault)
+{
+    std::unique_lock lock(worldMutex_);
+    worldState_.sensorFailure = fault;
+}
+
+void ThreadOrchestrator::setCommFault(bool fault)
+{
+    std::unique_lock lock(worldMutex_);
+    worldState_.communicationFailure = fault;
+}
+
+void ThreadOrchestrator::addTrain(TrainId trainId)
+{
+    std::unique_lock lock(worldMutex_);
+    if (std::find(trainIds_.begin(), trainIds_.end(), trainId) == trainIds_.end())
+    {
+        trainIds_.push_back(trainId);
+        updateWorldSnapshotLocked();
+    }
+}
+
+void ThreadOrchestrator::removeTrain(TrainId trainId)
+{
+    std::unique_lock lock(worldMutex_);
+    const auto it = std::find(trainIds_.begin(), trainIds_.end(), trainId);
+    if (it != trainIds_.end())
+    {
+        trainIds_.erase(it);
+        updateWorldSnapshotLocked();
+    }
+}
+
 void ThreadOrchestrator::waitUntil(
     const std::chrono::steady_clock::time_point next)
 {
@@ -222,17 +255,25 @@ void ThreadOrchestrator::safetyLoop()
         }
         if (step)
         {
-            const SafetyCycleResult result = step(state);
+            try
             {
-                std::unique_lock lock(worldMutex_);
-                worldState_.predictions = result.predictions;
-                worldState_.activeConflicts = result.activeConflicts;
-                worldState_.reservations = result.reservations;
-                worldState_.commands = result.commands;
+                const SafetyCycleResult result = step(state);
+                {
+                    std::unique_lock lock(worldMutex_);
+                    worldState_.predictions = result.predictions;
+                    worldState_.activeConflicts = result.activeConflicts;
+                    worldState_.reservations = result.reservations;
+                    worldState_.commands = result.commands;
+                    worldState_.decisions = result.decisions;
+                }
+                for (const auto& command : result.commands)
+                {
+                    commandQueue_.push(command);
+                }
             }
-            for (const auto& command : result.commands)
+            catch (const std::exception& /*e*/)
             {
-                commandQueue_.push(command);
+                // Safety calculation exception handled; thread remains active
             }
         }
         ++safetyCycles_;

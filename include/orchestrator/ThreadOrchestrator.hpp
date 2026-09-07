@@ -38,6 +38,7 @@ struct SafetyCycleResult
     std::vector<conflict::Conflict> activeConflicts;
     std::vector<conflict::ResourceReservation> reservations;
     std::vector<safety::SafetyCommand> commands;
+    std::vector<SafetyDecision> decisions;
 };
 
 using SafetyStep = std::function<SafetyCycleResult(const WorldState&)>;
@@ -70,6 +71,11 @@ public:
     [[nodiscard]] std::size_t hmiCycles() const noexcept;
 
     void setSafetyStep(SafetyStep safetyStep);
+
+    void setSensorFault(bool fault);
+    void setCommFault(bool fault);
+    void addTrain(TrainId trainId);
+    void removeTrain(TrainId trainId);
 
 private:
     void physicsLoop();

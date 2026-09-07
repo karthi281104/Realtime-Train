@@ -44,6 +44,8 @@ add_library(tcas_core
     src/safety/PriorityEngine.cpp
     src/safety/ConflictPriorityQueue.cpp
     src/safety/ResolutionEngine.cpp
+    src/orchestrator/SafetyPipeline.cpp
+    src/scenario/ScenarioManager.cpp
     src/orchestrator/ThreadOrchestrator.cpp
     src/hmi/HmiDisplay.cpp
     src/hmi/TelemetryLogger.cpp
@@ -51,6 +53,7 @@ add_library(tcas_core
 )
 
 target_include_directories(tcas_core PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(tcas_core PUBLIC ${PROJECT_SOURCE_DIR}/include/scenario)
 
 add_executable(tcas
     src/main.cpp
@@ -63,6 +66,7 @@ add_executable(tcas
 
 target_link_libraries(tcas PRIVATE tcas_core)
 target_include_directories(tcas PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(tcas PRIVATE ${PROJECT_SOURCE_DIR}/include/scenario)
 
 include(FetchContent)
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
@@ -101,6 +105,8 @@ add_executable(tcas_tests
     tests/safety/ConflictPriorityQueueTest.cpp
     tests/safety/ResolutionEngineTest.cpp
     tests/safety/SafetyIntegrationTest.cpp
+    tests/orchestrator/SafetyPipelineTest.cpp
+    tests/integration/Module8To12IntegrationTest.cpp
     tests/orchestrator/CommandQueueTest.cpp
     tests/orchestrator/ThreadOrchestratorTest.cpp
     tests/hmi/HmiDisplayTest.cpp
