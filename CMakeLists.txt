@@ -61,11 +61,6 @@ target_link_libraries(tcas_core PUBLIC Threads::Threads)
 # Main executable with real-time autonomous safety orchestrator and demo modes
 add_executable(tcas
     src/main.cpp
-    src/demo/FoundationDemo.cpp
-    src/demo/SimulationDemo.cpp
-    src/demo/IntegratedDemo.cpp
-    src/demo/Module9Demo.cpp
-    src/demo/Module10Demo.cpp
 )
 
 target_link_libraries(tcas PRIVATE tcas_core Threads::Threads)
